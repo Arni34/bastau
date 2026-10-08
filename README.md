@@ -1,5 +1,7 @@
 # BASTAU — Student Project Ecosystem
 
+**Репозиторий:** https://github.com/Arni34/bastau · **Прод:** https://bastau-arni34s-projects.vercel.app (обновляется автоматически при пуше в `main`)
+
 Кликабельный фронтенд-прототип MVP по ТЗ: **IDEA → PROJECT → TEAM → ACTION → RESULT**.
 Статический сайт без сборки: HTML + CSS + ES2020 + GSAP (вендорится локально).
 
