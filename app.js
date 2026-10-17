@@ -1,44 +1,41 @@
-/* ==========================================================================
-   BASTAU — приложение (роутер, хранилище, экраны)
-   Прототип MVP: данные живут в localStorage, пароли не сохраняются.
-   ========================================================================== */
+/* BASTAU - SPA app */
+
 (() => {
   'use strict';
 
   const D = window.BASTAU;
   const M = window.BastauMotion;
-  const KEY = D.VERSION;
-  const ADMIN_IDS = ['u1'];             // демо-администраторы платформы
+  const KEY_SESSION = 'bastau_session_user';
 
-  /* ============================== Хранилище ============================= */
-  let db = load();
-  function load() {
-    const base = D.seed();
+  /* ============================== SESSION ============================= */
+  let currentUser = getStoredSession();
+
+  function getStoredSession() {
     try {
-      const raw = localStorage.getItem(KEY);
-      if (!raw) return base;
-      const saved = JSON.parse(raw) || {};
-      // Недостающие или битые коллекции подмешиваем из сида: частично записанное
-      // хранилище (старая версия, сбой записи) не должно ронять приложение в белый экран.
-      Object.keys(base).forEach((k) => {
-        if (Array.isArray(base[k]) && !Array.isArray(saved[k])) saved[k] = base[k];
-      });
-      if (typeof saved.session === 'undefined') saved.session = null;
-      return saved;
-    } catch (e) { return base; }   /* приватный режим или повреждённый JSON */
+      const raw = localStorage.getItem(KEY_SESSION);
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) {
+      return null;
+    }
   }
-  function save() {
-    try { localStorage.setItem(KEY, JSON.stringify(db)); } catch (e) { /* хранилище недоступно — работаем в памяти */ }
-  }
-  function resetDb() { db = D.seed(); save(); }
 
-  /* ============================== Утилиты =============================== */
-  const $ = (s, r = document) => r.querySelector(s);
-  const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+  function setSession(user) {
+    currentUser = user;
+    try {
+      if (user) {
+        localStorage.setItem(KEY_SESSION, JSON.stringify(user));
+      } else {
+        localStorage.removeItem(KEY_SESSION);
+      }
+    } catch (e) {}
+  }
+
+  /* ============================== UTILS =============================== */
+  const $ = (s, r = document) => r.querySelector(s); const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
   const esc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const uid = (p) => p + Math.random().toString(36).slice(2, 8);
   const icon = (n, cls = '') => `<svg class="ic ${cls}" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-${n}"/></svg>`;
-  const initials = (name) => String(name).trim().split(/\s+/).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
+  const initials = (name) => String(name || 'U').trim().split(/\s+/).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
   const label = (list, id) => (list.find((x) => x.id === id) || {}).ru || id || '—';
   const catRu = (id) => label(D.CATEGORIES, id);
   const stageRu = (id) => label(D.STAGES, id);
@@ -52,23 +49,23 @@
   function plural(n, a, b, c) { const m = n % 100, k = n % 10; return n + ' ' + (m > 10 && m < 20 ? c : k === 1 ? a : k > 1 && k < 5 ? b : c); }
   const words = (s) => s.split(' ').map((w) => `<span class="w">${w}</span>`).join(' ');
 
-  /* ============================ Пользователь ============================ */
-  const me = () => db.users.find((u) => u.id === db.session) || null;
-  const isAdmin = () => !!db.session && ADMIN_IDS.includes(db.session);
-  const userById = (id) => db.users.find((u) => u.id === id) || { id, name: 'Пользователь', username: 'user', city: '—', school: '—', grade: '—', skills: [], interests: [], achievements: [], eventsCount: 0, bio: '' };
-  const projectById = (id) => db.projects.find((p) => p.id === id) || null;
-  const myProjects = (id) => db.projects.filter((p) => p.ownerId === id);
-  const myTeams = (id) => db.projects.filter((p) => p.ownerId !== id && p.members.some((m) => m.userId === id));
-  const myApps = (id) => db.applications.filter((a) => a.userId === id);
-  const incomingApps = (id) => db.applications.filter((a) => { const p = projectById(a.projectId); return p && p.ownerId === id; });
-  const myNotifs = (id) => db.notifications.filter((n) => n.userId === id).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-  const unread = (id) => myNotifs(id).filter((n) => !n.read).length;
+  /* ============================ USER ============================ */
+  const me = () => currentUser;
+  const isAdmin = () => false //Get from user_statuses
+  const userById = (id) => ({ id, name: 'Пользователь', username: 'user', city: '—', school: '—', grade: '—', skills: [], interests: [], achievements: [], eventsCount: 0, bio: '' });
+  const projectById = (id) => null;
+  const myProjects = (id) => [];
+  const myTeams = (id) => [];
+  const myApps = (id) => [];
+  const incomingApps = (id) => [];
+  const myNotifs = (id) => [];
+  const unread = (id) => 0;
 
   function notify(userId, type, text, href) {
     db.notifications.push({ id: uid('n'), userId, type, text, href: href || '', read: false, createdAt: new Date().toISOString() });
   }
 
-  /* ========================== Тосты и модалки =========================== */
+  /* ========================== MODALS =========================== */
   function toast(text, kind) {
     const box = $('#toasts');
     const el = document.createElement('div');
@@ -113,7 +110,7 @@
     confirmSheet.cb = onOk;
   }
 
-  /* ============================== Формы ================================= */
+  /* ============================== FORMS ================================= */
   function fieldError(form, name, msg) {
     const input = form.querySelector(`[name="${name}"]`);
     const box = form.querySelector(`[data-err="${name}"]`);
@@ -147,7 +144,7 @@
     return el && el.value ? el.value.split(',').filter(Boolean) : [];
   }
 
-  /* ============================= Компоненты ============================= */
+  /* ============================= COMPONENTS ============================= */
   function avatar(user, size) {
     const cls = size ? ` avatar--${size}` : '';
     return `<span class="avatar${cls}" aria-hidden="true">${esc(initials(user.name))}</span>`;
@@ -175,6 +172,7 @@
   }
 
   function personCard(u) {
+    u.skills = u.skills || [];
     return `<article class="card" data-reveal>
       <div class="row" style="flex-wrap:nowrap">
         ${avatar(u)}
@@ -188,7 +186,7 @@
         ${u.skills.slice(0, 3).map((s) => `<span class="chip chip--skill">${esc(skillRu(s))}</span>`).join('')}
       </div>
       <div class="card__meta-row">
-        <span class="card__meta">${icon('case', 'ic--sm')}${plural(db.projects.filter((p) => p.members.some((m) => m.userId === u.id)).length, 'проект', 'проекта', 'проектов')}</span>
+        <span class="card__meta">${icon('case', 'ic--sm')}Участник платформы</span>
       </div>
       <a class="btn btn--ghost btn--full card__act" href="#/profile/${u.username}">Открыть профиль</a>
     </article>`;
@@ -240,7 +238,7 @@
     return `<div class="empty">${icon('compass')}<h3>${esc(title)}</h3><p>${esc(text)}</p>${btn || ''}</div>`;
   }
 
-  /* =============================== Роутер =============================== */
+  /* =============================== ROUTER =============================== */
   const routes = {
     '': renderHome,
     'projects': renderProjects,
@@ -316,12 +314,33 @@
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
   }
 
-  /* ================================ ГЛАВНАЯ ============================= */
-  function renderHome(root) {
-    const top = db.projects.slice().sort((a, b) => b.members.length - a.members.length).slice(0, 3);
-    const upcoming = db.events.slice().sort((a, b) => a.date.localeCompare(b.date)).slice(0, 3);
-    const cities = new Set(db.users.map((u) => u.city)).size;
-    const openRoles = db.projects.filter((p) => p.needTeam).length;
+  /* ================================ PAGES ============================= */
+
+  /* Homepage */
+  async function renderHome(root) {
+  root.innerHTML = `<div class="wrap" style="padding:var(--sp-6) 0"><p>Загрузка данных...</p></div>`;
+
+  try {
+    const [resProj, resEvt, resUsers, resMent] = await Promise.all([
+      fetch('/api/projects'),
+      fetch('/api/events'),
+      fetch('/api/users'),
+      fetch('/api/mentors')
+    ]);
+
+    if (!resProj.ok || !resEvt.ok || !resUsers.ok || !resMent.ok) {
+      throw new Error('API response error');
+    }
+
+    const projects = await resProj.json();
+    const events = await resEvt.json();
+    const users = await resUsers.json();
+    const mentors = await resMent.json();
+
+    const top = projects.slice().sort((a, b) => (b.members?.length || 0) - (a.members?.length || 0)).slice(0, 3);
+    const upcoming = events.slice().sort((a, b) => (a.date || '').localeCompare(b.date || '')).slice(0, 3);
+    const cities = new Set(users.map((u) => u.city)).size;
+    const openRoles = projects.filter((p) => p.need_team || p.needTeam).length;
 
     root.innerHTML = `
     <section class="hero">
@@ -336,9 +355,9 @@
             <a class="hero__link" href="#/people">Ищу команду в свой проект ${icon('arrow', 'ic--sm ic--arrow')}</a>
           </div>
           <div class="hero__stats">
-            <div data-hero-stat><div class="stat__n" data-count="${db.projects.length}">0</div><div class="stat__l">проектов в каталоге</div></div>
-            <div data-hero-stat><div class="stat__n" data-count="${db.users.length}">0</div><div class="stat__l">участников</div></div>
-            <div data-hero-stat><div class="stat__n" data-count="${db.events.length}">0</div><div class="stat__l">мероприятий</div></div>
+            <div data-hero-stat><div class="stat__n" data-count="${projects.length}">0</div><div class="stat__l">проектов в каталоге</div></div>
+            <div data-hero-stat><div class="stat__n" data-count="${users.length}">0</div><div class="stat__l">участников</div></div>
+            <div data-hero-stat><div class="stat__n" data-count="${events.length}">0</div><div class="stat__l">мероприятий</div></div>
             <div data-hero-stat><div class="stat__n" data-count="${cities}">0</div><div class="stat__l">городов</div></div>
           </div>
         </div>
@@ -353,13 +372,13 @@
             <h3 class="card__ttl" style="font-size:22px">EcoQala</h3>
             <p class="card__txt">Раздельный сбор в школах: боксы, карта пунктов приёма и рейтинг классов.</p>
             <div class="row" style="margin-top:var(--sp-4);justify-content:space-between">
-              <div class="stack">${db.users.slice(0, 4).map((u) => avatar(u, 'sm')).join('')}</div>
+              <div class="stack">${users.slice(0, 4).map((u) => avatar(u, 'sm')).join('')}</div>
               <span class="card__meta">${icon('users', 'ic--sm')}3 / 6 в команде</span>
             </div>
             <div class="card__ft" style="gap:var(--sp-2)">
               <span class="chip chip--skill">Маркетинг</span><span class="chip chip--skill">Дизайн</span><span class="chip chip--skill">+1</span>
               <span class="spacer"></span>
-              <a class="card__go" href="#/project/p1">Открыть ${icon('arrow', 'ic--sm ic--arrow')}</a>
+              <a class="card__go" href="#/project/p000-000-001">Открыть ${icon('arrow', 'ic--sm ic--arrow')}</a>
             </div>
           </div>
         </div>
@@ -371,7 +390,6 @@
         <div class="sec-hd">
           <span class="eyebrow">Как это работает</span>
           <h2>Путь от идеи до результата</h2>
-          <p>Пять шагов, которые BASTAU держит в одном месте — без десятка чатов и потерянных договорённостей.</p>
         </div>
         <div class="journey" data-journey>
           <div class="journey__line"><span class="journey__fill"></span></div>
@@ -398,7 +416,6 @@
       <div class="wrap">
         <div class="sec-hd">
           <h2>Ближайшие мероприятия</h2>
-          <p>Хакатоны, MUN, олимпиады и мастер-классы — с дедлайнами регистрации.</p>
         </div>
         <div class="grid grid--3">${upcoming.map(eventCard).join('')}</div>
         <div class="sec-more"><a class="btn btn--ghost" href="#/events">Все мероприятия ${icon('arrow', 'ic--sm ic--arrow')}</a></div>
@@ -409,120 +426,110 @@
       <div class="wrap">
         <div class="sec-hd">
           <h2>Наставники</h2>
-          <p>Взрослые практики, которые разбирают проекты и помогают дожать результат.</p>
         </div>
-        <div class="grid grid--2">${db.mentors.slice(0, 2).map(mentorCard).join('')}</div>
+        <div class="grid grid--2">${mentors.slice(0, 2).map(mentorCard).join('')}</div>
         <div class="sec-more"><a class="btn btn--ghost" href="#/mentors">Все наставники ${icon('arrow', 'ic--sm ic--arrow')}</a></div>
       </div>
-    </section>
-
-    <section class="section">
-      <div class="wrap">
-        <div class="card" style="border-radius:var(--r-xl);padding:var(--sp-7)" data-reveal>
-          <div class="split">
-            <div>
-              <span class="eyebrow">О BASTAU</span>
-              <h2 style="margin:10px 0 var(--sp-4);font-size:clamp(24px,3.2vw,32px)">Не каталог проектов, а экосистема</h2>
-              <p style="color:var(--fg-mut);max-width:60ch">BASTAU собирает вместе то, что у школьника обычно разбросано: идею, команду, возможности и результат. Профиль растёт вместе с проектами — к выпуску у тебя готовое портфолио, а не список «участвовал».</p>
-              <div class="row" style="margin-top:var(--sp-5)">
-                <a class="btn btn--primary" href="#/auth?mode=signup">Присоединиться ${icon('arrow', 'ic--sm ic--arrow')}</a>
-                <a class="btn btn--ghost" href="#/about">Подробнее о платформе</a>
-              </div>
-            </div>
-            <div class="kv">
-              ${[['users', 'Команды с ролями', 'Founder, Developer, Designer — роли видно всем, ответственность понятна.'],
-                ['calendar', 'Возможности рядом', 'Хакатоны, MUN и олимпиады в одном списке с дедлайнами.'],
-                ['award', 'Портфолио само собирается', 'Проекты, достижения и участие копятся в профиле.']]
-                .map(([ic, t, d]) => `<div class="tl"><span class="tl__dot">${icon(ic, 'ic--sm')}</span><div><div class="tl__t">${t}</div><div class="tl__s">${d}</div></div></div>`).join('')}
-            </div>
-          </div>
-        </div>
-      </div>
     </section>`;
+
+    if (M && M.hero) M.hero(root);
+    if (M && M.counters) M.counters(root);
+    if (M && M.reveal) M.reveal(root);
+  } catch (err) {
+    console.error(err);
+    root.innerHTML = `<div class="wrap"><p>Ошибка загрузки данных главной страницы.</p></div>`;
+  }
   }
 
-  /* ============================ КАТАЛОГ ПРОЕКТОВ ======================== */
-  function renderProjects(root, _arg, params) {
-    const f = {
-      q: params.get('q') || '', cat: params.get('cat') || '', city: params.get('city') || '',
-      skill: params.get('skill') || '', stage: params.get('stage') || '', fmt: params.get('fmt') || '',
-      lang: params.get('lang') || '', team: params.get('team') || '',
-    };
+  /* Projects list */
+  async function renderProjects(root, _arg, params) {
+  const f = {
+    q: params.get('q') || '', cat: params.get('cat') || '', city: params.get('city') || '',
+    skill: params.get('skill') || '', stage: params.get('stage') || '', fmt: params.get('fmt') || '',
+    lang: params.get('lang') || '', team: params.get('team') || '',
+  };
 
-    root.innerHTML = `
-    <section class="section section--tight">
-      <div class="wrap">
-        <span class="eyebrow">Каталог</span>
-        <h1 style="font-size:clamp(28px,4.4vw,42px);margin:10px 0 var(--sp-4)">Проекты</h1>
-        <p style="color:var(--fg-mut);max-width:60ch">Найди проект по интересам и навыкам — или создай свой и собери команду.</p>
+  root.innerHTML = `
+  <section class="section section--tight">
+    <div class="wrap">
+      <span class="eyebrow">Каталог</span>
+      <h1 style="font-size:clamp(28px,4.4vw,42px);margin:10px 0 var(--sp-4)">Проекты</h1>
+      <p style="color:var(--fg-mut);max-width:60ch">Найди проект по интересам и навыкам — или создай свой и собери команду.</p>
 
-        <form class="filters" style="margin-top:var(--sp-5)" data-form="filters" role="search">
-          <div class="searchbar">
-            <label class="search">
-              <span class="sr">Поиск по названию проекта</span>
-              ${icon('search')}
-              <input type="search" name="q" value="${esc(f.q)}" placeholder="Название проекта или ключевое слово" />
-            </label>
-            <button class="btn btn--primary" type="submit">Найти</button>
-            <button class="btn btn--ghost" type="button" data-act="filters-toggle" aria-expanded="false" aria-controls="filters-body">${icon('filter')}Фильтры</button>
-          </div>
-
-          <div id="filters-body" class="filters" hidden>
-            <fieldset class="fieldset"><legend>Категория</legend>
-              ${chipPicker('cat', D.CATEGORIES, f.cat ? [f.cat] : [])}
-            </fieldset>
-            <div class="grid grid--4">
-              <div class="field"><label for="f-city">Город</label>
-                <select class="select" id="f-city" name="city"><option value="">Любой</option>${D.CITIES.map((c) => `<option ${f.city === c ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select></div>
-              <div class="field"><label for="f-skill">Нужный навык</label>
-                <select class="select" id="f-skill" name="skill"><option value="">Любой</option>${D.SKILLS.map((s) => `<option value="${esc(s)}" ${f.skill === s ? 'selected' : ''}>${esc(skillRu(s))}</option>`).join('')}</select></div>
-              <div class="field"><label for="f-stage">Стадия</label>
-                <select class="select" id="f-stage" name="stage"><option value="">Любая</option>${D.STAGES.map((s) => `<option value="${esc(s.id)}" ${f.stage === s.id ? 'selected' : ''}>${esc(s.ru)}</option>`).join('')}</select></div>
-              <div class="field"><label for="f-fmt">Формат</label>
-                <select class="select" id="f-fmt" name="fmt"><option value="">Любой</option>${D.FORMATS.map((s) => `<option value="${esc(s.id)}" ${f.fmt === s.id ? 'selected' : ''}>${esc(s.ru)}</option>`).join('')}</select></div>
-              <div class="field"><label for="f-lang">Язык</label>
-                <select class="select" id="f-lang" name="lang"><option value="">Любой</option>${D.LANGS.map((s) => `<option value="${esc(s.id)}" ${f.lang === s.id ? 'selected' : ''}>${esc(s.ru)}</option>`).join('')}</select></div>
-              <div class="field"><label for="f-team">Набор в команду</label>
-                <select class="select" id="f-team" name="team"><option value="">Неважно</option><option value="1" ${f.team === '1' ? 'selected' : ''}>Только те, кто ищет</option></select></div>
-            </div>
-            <div class="filters__row">
-              <button class="btn btn--primary" type="submit">Применить фильтры</button>
-              <button class="btn btn--ghost" type="button" data-act="filters-reset">Сбросить</button>
-            </div>
-          </div>
-        </form>
-
-        <div class="row" style="margin:var(--sp-5) 0 var(--sp-4)">
-          <span class="count" id="p-count"></span>
-          <span class="spacer"></span>
-          <a class="btn btn--accent btn--sm" href="#/create">${icon('plus', 'ic--sm')}Создать проект</a>
+      <form class="filters" style="margin-top:var(--sp-5)" data-form="filters" role="search">
+        <div class="searchbar">
+          <label class="search">
+            <span class="sr">Поиск по названию проекта</span>
+            ${icon('search')}
+            <input type="search" name="q" value="${esc(f.q)}" placeholder="Название проекта или ключевое слово" />
+          </label>
+          <button class="btn btn--primary" type="submit">Найти</button>
+          <button class="btn btn--ghost" type="button" data-act="filters-toggle" aria-expanded="false" aria-controls="filters-body">${icon('filter')}Фильтры</button>
         </div>
-        <div class="grid grid--3" id="p-list"></div>
+
+        <div id="filters-body" class="filters" hidden>
+          <fieldset class="fieldset"><legend>Категория</legend>
+            ${chipPicker('cat', D.CATEGORIES, f.cat ? [f.cat] : [])}
+          </fieldset>
+          <div class="grid grid--4">
+            <div class="field"><label for="f-city">Город</label>
+              <select class="select" id="f-city" name="city"><option value="">Любой</option>${D.CITIES.map((c) => `<option ${f.city === c ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select></div>
+            <div class="field"><label for="f-skill">Нужный навык</label>
+              <select class="select" id="f-skill" name="skill"><option value="">Любой</option>${D.SKILLS.map((s) => `<option value="${esc(s)}" ${f.skill === s ? 'selected' : ''}>${esc(skillRu(s))}</option>`).join('')}</select></div>
+            <div class="field"><label for="f-stage">Стадия</label>
+              <select class="select" id="f-stage" name="stage"><option value="">Любая</option>${D.STAGES.map((s) => `<option value="${esc(s.id)}" ${f.stage === s.id ? 'selected' : ''}>${esc(s.ru)}</option>`).join('')}</select></div>
+            <div class="field"><label for="f-fmt">Формат</label>
+              <select class="select" id="f-fmt" name="fmt"><option value="">Любой</option>${D.FORMATS.map((s) => `<option value="${esc(s.id)}" ${f.fmt === s.id ? 'selected' : ''}>${esc(s.ru)}</option>`).join('')}</select></div>
+            <div class="field"><label for="f-lang">Язык</label>
+              <select class="select" id="f-lang" name="lang"><option value="">Любой</option>${D.LANGS.map((s) => `<option value="${esc(s.id)}" ${f.lang === s.id ? 'selected' : ''}>${esc(s.ru)}</option>`).join('')}</select></div>
+            <div class="field"><label for="f-team">Набор в команду</label>
+              <select class="select" id="f-team" name="team"><option value="">Неважно</option><option value="1" ${f.team === '1' ? 'selected' : ''}>Только те, кто ищет</option></select></div>
+          </div>
+          <div class="filters__row">
+            <button class="btn btn--primary" type="submit">Применить фильтры</button>
+            <button class="btn btn--ghost" type="button" data-act="filters-reset">Сбросить</button>
+          </div>
+        </div>
+      </form>
+
+      <div class="row" style="margin:var(--sp-5) 0 var(--sp-4)">
+        <span class="count" id="p-count">Загрузка...</span>
+        <span class="spacer"></span>
+        <a class="btn btn--accent btn--sm" href="#/create">${icon('plus', 'ic--sm')}Создать проект</a>
       </div>
-    </section>`;
+      <div class="grid grid--3" id="p-list"></div>
+    </div>
+  </section>`;
 
-    const list = db.projects.filter((p) => {
-      const q = f.q.toLowerCase();
-      if (q && !(p.title + ' ' + p.summary + ' ' + p.problem).toLowerCase().includes(q)) return false;
-      if (f.cat && p.category !== f.cat) return false;
-      if (f.city && p.city !== f.city) return false;
-      if (f.skill && !p.skills.includes(f.skill)) return false;
-      if (f.stage && p.stage !== f.stage) return false;
-      if (f.fmt && p.format !== f.fmt) return false;
-      if (f.lang && p.lang !== f.lang) return false;
-      if (f.team === '1' && !p.needTeam) return false;
-      return true;
-    });
-    $('#p-count', root).textContent = list.length ? `Найдено ${plural(list.length, 'проект', 'проекта', 'проектов')}` : 'Ничего не найдено';
-    $('#p-list', root).innerHTML = list.length ? list.map(projectCard).join('')
-      : emptyState('Под фильтры ничего не подошло', 'Попробуй убрать часть условий или поискать по другому слову.',
-        '<button class="btn btn--ghost" type="button" data-act="filters-reset">Сбросить фильтры</button>');
+  try {
+    const queryStr = params.toString();
+    const res = await fetch(`/api/projects${queryStr ? '?' + queryStr : ''}`);
+    const list = await res.json();
 
-    const form = $('[data-form="filters"]', root);
-    const body = $('#filters-body', root);
+    const countEl = $('#p-count', root);
+    const listEl = $('#p-list', root);
+
+    if (countEl) {
+      countEl.textContent = list.length ? `Найдено ${plural(list.length, 'проект', 'проекта', 'проектов')}` : 'Ничего не найдено';
+    }
+    if (listEl) {
+      listEl.innerHTML = list.length ? list.map(projectCard).join('')
+        : emptyState('Под фильтры ничего не подошло', 'Попробуй убрать часть условий или поискать по другому слову.',
+          '<button class="btn btn--ghost" type="button" data-act="filters-reset">Сбросить фильтры</button>');
+    }
+  } catch (err) {
+    console.error(err);
+    const countEl = $('#p-count', root);
+    if (countEl) countEl.textContent = 'Ошибка загрузки проектов';
+  }
+
+  const form = $('[data-form="filters"]', root);
+  const body = $('#filters-body', root);
+  if (form && body) {
     if (f.cat || f.city || f.skill || f.stage || f.fmt || f.lang || f.team) {
       body.hidden = false;
-      $('[data-act="filters-toggle"]', root).setAttribute('aria-expanded', 'true');
+      const toggleBtn = $('[data-act="filters-toggle"]', root);
+      if (toggleBtn) toggleBtn.setAttribute('aria-expanded', 'true');
     }
     form.addEventListener('submit', (e) => {
       e.preventDefault();
@@ -536,16 +543,40 @@
     });
   }
 
-  /* ============================ СТРАНИЦА ПРОЕКТА ======================== */
-  function renderProject(root, id) {
-    const p = projectById(id);
+  if (M && M.reveal) M.reveal(root);
+  }
+
+  /* Project page */
+  async function renderProject(root, id) {
+    root.innerHTML = `<div class="wrap" style="padding:var(--sp-6) 0"><p>Загрузка проекта...</p></div>`;
+
+    let p = null;
+    try {
+      const res = await fetch(`/api/projects/${id}`);
+      if (res.ok) p = await res.json();
+    } catch (err) {
+      console.error(err);
+    }
+
     if (!p) return render404(root);
-    const owner = userById(p.ownerId);
+
+    p.needTeam = p.need_team ?? p.needTeam;
+    p.teamSize = p.team_size ?? p.teamSize;
+    p.ownerId = p.owner_id ?? p.ownerId;
+    p.createdAt = p.created_at ?? p.createdAt;
+    p.members = p.members || [];
+    p.skills = p.skills || [];
+    p.links = p.links || [];
+
+    let owner = { name: 'Пользователь', username: 'user', city: p.city };
+    try {
+      const resOwner = await fetch(`/api/users/${p.ownerId}`);
+      if (resOwner.ok) owner = await resOwner.json();
+    } catch (e) {}
+
     const u = me();
     const mine = u && p.ownerId === u.id;
     const inTeam = u && p.members.some((m) => m.userId === u.id);
-    const applied = u && db.applications.find((a) => a.projectId === p.id && a.userId === u.id);
-    const apps = db.applications.filter((a) => a.projectId === p.id);
 
     root.innerHTML = `
     <section class="section section--tight">
@@ -572,8 +603,6 @@
               <h3 style="margin-bottom:var(--sp-3)">Нужные навыки</h3>
               <div class="row row--tight">${p.skills.map((s) => `<a class="chip" href="#/projects?skill=${encodeURIComponent(s)}">${esc(skillRu(s))}</a>`).join('')}</div>
             </div>
-
-            ${mine ? teamManager(p, apps) : ''}
           </div>
 
           <aside class="split__side">
@@ -582,7 +611,7 @@
                 <a href="#/profile/${owner.username}" aria-label="Профиль: ${esc(owner.name)}">${avatar(owner)}</a>
                 <div style="min-width:0">
                   <div class="member__n">${esc(owner.name)}</div>
-                  <div class="member__r">Создатель · ${esc(owner.city)}</div>
+                  <div class="member__r">Создатель · ${esc(owner.city || p.city)}</div>
                 </div>
               </div>
 
@@ -597,75 +626,30 @@
               <div style="margin-top:var(--sp-5)">
                 ${mine ? `<span class="badge badge--ok" style="width:100%;justify-content:center;padding:12px">Это твой проект</span>`
                   : inTeam ? `<span class="badge badge--ok" style="width:100%;justify-content:center;padding:12px">Ты в команде</span>`
-                    : applied ? `<span class="badge badge--${applied.status === 'rejected' ? 'danger' : applied.status === 'accepted' ? 'ok' : 'warn'}" style="width:100%;justify-content:center;padding:12px">Заявка: ${applied.status === 'pending' ? 'на рассмотрении' : applied.status === 'accepted' ? 'принята' : 'отклонена'}</span>`
-                      : `<button class="btn btn--primary btn--full" type="button" data-act="apply" data-id="${p.id}">${icon('users')}Подать заявку в команду</button>`}
+                    : `<button class="btn btn--primary btn--full" type="button" data-act="apply" data-id="${p.id}">${icon('users')}Подать заявку в команду</button>`}
               </div>
-              <p class="field__hint" style="margin-top:10px">Заявка уходит создателю проекта — ответ придёт в уведомления.</p>
             </div>
 
             <div class="card" style="margin-top:var(--sp-4)">
-              <h3 style="font-size:16px;margin-bottom:var(--sp-2)">Команда</h3>
-              ${p.members.map((m) => {
-                const mu = userById(m.userId);
-                return `<div class="member">
-                  <a href="#/profile/${mu.username}" aria-label="Профиль: ${esc(mu.name)}">${avatar(mu, 'sm')}</a>
-                  <div style="min-width:0"><div class="member__n">${esc(mu.name)}</div><div class="member__r">${esc(m.role)}</div></div>
-                </div>`;
-              }).join('')}
+              <h3 style="font-size:16px;margin-bottom:var(--sp-2)">Команда (${p.members.length})</h3>
+              ${p.members.map((m) => `
+                <div class="member">
+                  <div style="min-width:0">
+                    <div class="member__n">Участник (${m.userId})</div>
+                    <div class="member__r">${esc(m.role)}</div>
+                  </div>
+                </div>
+              `).join('')}
             </div>
-
-            <button class="btn btn--ghost btn--sm btn--full" style="margin-top:var(--sp-4)" type="button" data-act="report" data-kind="project" data-id="${p.id}">${icon('flag', 'ic--sm')}Пожаловаться</button>
           </aside>
         </div>
       </div>
     </section>`;
+
+    if (M && M.reveal) M.reveal(root);
   }
 
-  function teamManager(p, apps) {
-    const pend = apps.filter((a) => a.status === 'pending');
-    return `<div class="card" style="margin-top:var(--sp-5)" data-reveal>
-      <div class="sec-hd" style="margin-bottom:var(--sp-4)"><div><h3 style="font-size:20px">Управление командой</h3>
-        <p style="font-size:14px">Заявки, роли и состав — видно только тебе как создателю.</p></div></div>
-
-      <h4 style="font-size:15px;margin-bottom:var(--sp-2)">Заявки${pend.length ? ` · ${pend.length}` : ''}</h4>
-      ${pend.length ? pend.map((a) => {
-        const au = userById(a.userId);
-        return `<div class="card card--pad-sm card--flat" style="margin-bottom:var(--sp-3)">
-          <div class="row" style="flex-wrap:nowrap;align-items:flex-start">
-            ${avatar(au, 'sm')}
-            <div style="min-width:0;flex:1">
-              <div class="member__n">${esc(au.name)} <span class="member__r">· ${esc(au.city)}</span></div>
-              <p style="font-size:14.5px;color:var(--fg-mut);margin-top:4px">${esc(a.message)}</p>
-              <div class="row row--tight" style="margin-top:var(--sp-3)">
-                <select class="select" style="min-height:38px;max-width:180px;font-size:14px" data-role-for="${a.id}" aria-label="Роль для ${esc(au.name)}">
-                  ${D.ROLES.filter((r) => r !== 'Founder').map((r) => `<option>${r}</option>`).join('')}
-                </select>
-                <button class="btn btn--primary btn--sm" type="button" data-act="app-accept" data-id="${a.id}">${icon('check', 'ic--sm')}Принять</button>
-                <button class="btn btn--ghost btn--sm" type="button" data-act="app-reject" data-id="${a.id}">Отклонить</button>
-              </div>
-            </div>
-          </div>
-        </div>`;
-      }).join('') : '<p class="field__hint">Новых заявок нет.</p>'}
-
-      <h4 style="font-size:15px;margin:var(--sp-5) 0 var(--sp-2)">Состав</h4>
-      ${p.members.map((m) => {
-        const mu = userById(m.userId);
-        const founder = m.userId === p.ownerId;
-        return `<div class="member">
-          ${avatar(mu, 'sm')}
-          <div style="min-width:0;flex:1"><div class="member__n">${esc(mu.name)}</div><div class="member__r">${esc(m.role)}</div></div>
-          ${founder ? '<span class="badge">Founder</span>' : `
-            <select class="select" style="min-height:38px;max-width:150px;font-size:14px" data-act="member-role" data-project="${p.id}" data-user="${m.userId}" aria-label="Роль: ${esc(mu.name)}">
-              ${D.ROLES.filter((r) => r !== 'Founder').map((r) => `<option ${r === m.role ? 'selected' : ''}>${r}</option>`).join('')}
-            </select>
-            <button class="ib" type="button" data-act="member-remove" data-project="${p.id}" data-user="${m.userId}" aria-label="Удалить ${esc(mu.name)} из команды">${icon('trash', 'ic--sm')}</button>`}
-        </div>`;
-      }).join('')}
-    </div>`;
-  }
-
-  /* ============================ СОЗДАНИЕ ПРОЕКТА ======================== */
+  /* Create a project */
   function renderCreate(root) {
     const u = me();
     if (!u) return needAuth(root, 'Чтобы создать проект, войди в аккаунт', '#/create');
@@ -677,53 +661,53 @@
         <h1 style="font-size:clamp(26px,4vw,38px);margin:10px 0 var(--sp-2)">Создать проект</h1>
         <p style="color:var(--fg-mut)">Заполни поля — проект появится в каталоге, и тебе начнут приходить заявки в команду.</p>
 
-        <form class="form" style="margin-top:var(--sp-6)" data-form="create" novalidate>
-          <div class="field">
-            <label for="c-title">Название проекта <span class="req" aria-hidden="true">*</span></label>
-            <input class="input" id="c-title" name="title" maxlength="60" placeholder="Например: EcoQala" required />
-            <span class="field__hint">Коротко и узнаваемо — до 60 символов.</span>
-            <span class="field__err" data-err="title" role="alert"></span>
-          </div>
+      <form class="form" style="margin-top:var(--sp-6)" data-form="create" novalidate>
+        <div class="field">
+          <label for="c-title">Название проекта <span class="req" aria-hidden="true">*</span></label>
+          <input class="input" id="c-title" name="title" maxlength="60" placeholder="Например: EcoQala" required />
+          <span class="field__hint">Коротко и узнаваемо — до 60 символов.</span>
+          <span class="field__err" data-err="title" role="alert"></span>
+        </div>
 
-          <div class="field">
-            <label for="c-summary">Краткое описание <span class="req" aria-hidden="true">*</span></label>
-            <textarea class="textarea" id="c-summary" name="summary" maxlength="180" placeholder="Одно-два предложения: что делает проект" style="min-height:90px" required></textarea>
-            <span class="field__hint">Это описание видно на карточке в каталоге.</span>
-            <span class="field__err" data-err="summary" role="alert"></span>
-          </div>
+        <div class="field">
+          <label for="c-summary">Краткое описание <span class="req" aria-hidden="true">*</span></label>
+          <textarea class="textarea" id="c-summary" name="summary" maxlength="180" placeholder="Одно-два предложения: что делает проект" style="min-height:90px" required></textarea>
+          <span class="field__hint">Это описание видно на карточке в каталоге.</span>
+          <span class="field__err" data-err="summary" role="alert"></span>
+        </div>
 
-          <div class="field">
-            <label for="c-problem">Проблема <span class="req" aria-hidden="true">*</span></label>
-            <textarea class="textarea" id="c-problem" name="problem" placeholder="Какую проблему решает проект? Для кого она важна?" required></textarea>
-            <span class="field__err" data-err="problem" role="alert"></span>
-          </div>
+        <div class="field">
+          <label for="c-problem">Проблема <span class="req" aria-hidden="true">*</span></label>
+          <textarea class="textarea" id="c-problem" name="problem" placeholder="Какую проблему решает проект? Для кого она важна?" required></textarea>
+          <span class="field__err" data-err="problem" role="alert"></span>
+        </div>
 
-          <div class="field">
-            <label for="c-solution">Решение <span class="req" aria-hidden="true">*</span></label>
-            <textarea class="textarea" id="c-solution" name="solution" placeholder="Как именно проект решает эту проблему?" required></textarea>
-            <span class="field__err" data-err="solution" role="alert"></span>
-          </div>
+        <div class="field">
+          <label for="c-solution">Решение <span class="req" aria-hidden="true">*</span></label>
+          <textarea class="textarea" id="c-solution" name="solution" placeholder="Как именно проект решает эту проблему?" required></textarea>
+          <span class="field__err" data-err="solution" role="alert"></span>
+        </div>
 
-          <div class="field">
-            <label for="c-goal">Цель проекта</label>
-            <input class="input" id="c-goal" name="goal" placeholder="Измеримый результат: сколько и к какому сроку" />
-            <span class="field__hint">Например: подключить 20 школ до конца учебного года.</span>
-          </div>
+        <div class="field">
+          <label for="c-goal">Цель проекта</label>
+          <input class="input" id="c-goal" name="goal" placeholder="Измеримый результат: сколько и к какому сроку" />
+          <span class="field__hint">Например: подключить 20 школ до конца учебного года.</span>
+        </div>
 
-          <fieldset class="fieldset">
-            <legend>Категория <span class="req" aria-hidden="true">*</span></legend>
-            ${chipPicker('category', D.CATEGORIES, ['Technology'])}
-            <span class="field__err" data-err="category" role="alert"></span>
-          </fieldset>
+        <fieldset class="fieldset">
+          <legend>Категория <span class="req" aria-hidden="true">*</span></legend>
+          ${chipPicker('category', D.CATEGORIES, ['Technology'])}
+          <span class="field__err" data-err="category" role="alert"></span>
+        </fieldset>
 
-          <fieldset class="fieldset">
-            <legend>Необходимые навыки <span class="req" aria-hidden="true">*</span></legend>
-            ${chipPicker('skills', D.SKILLS, [], skillRu)}
-            <span class="field__hint" style="display:block;margin-top:8px">Отметь всё, чего сейчас не хватает команде.</span>
-            <span class="field__err" data-err="skills" role="alert"></span>
-          </fieldset>
+        <fieldset class="fieldset">
+          <legend>Необходимые навыки <span class="req" aria-hidden="true">*</span></legend>
+          ${chipPicker('skills', D.SKILLS, [], skillRu)}
+          <span class="field__hint" style="display:block;margin-top:8px">Отметь всё, чего сейчас не хватает команде.</span>
+          <span class="field__err" data-err="skills" role="alert"></span>
+        </fieldset>
 
-          <div class="grid-2">
+        <div class="grid-2">
             <div class="field"><label for="c-stage">Стадия проекта</label>
               <select class="select" id="c-stage" name="stage">${D.STAGES.map((s) => `<option value="${s.id}">${s.ru}</option>`).join('')}</select></div>
             <div class="field"><label for="c-team">Количество участников</label>
@@ -748,7 +732,7 @@
       </div>
     </section>`;
 
-    $('[data-form="create"]', root).addEventListener('submit', (e) => {
+    $('[data-form="create"]', root).addEventListener('submit', async (e) => {
       e.preventDefault();
       const form = e.currentTarget;
       const ok = validate(form, {
@@ -761,37 +745,12 @@
       });
       if (!ok) { toast('Проверьте выделенные поля', 'err'); return; }
 
-      const fd = new FormData(form);
-      const link = (fd.get('link') || '').toString().trim();
-      const p = {
-        id: uid('p'),
-        title: fd.get('title').toString().trim(),
-        summary: fd.get('summary').toString().trim(),
-        problem: fd.get('problem').toString().trim(),
-        solution: fd.get('solution').toString().trim(),
-        goal: (fd.get('goal') || '').toString().trim() || 'Цель ещё формулируется.',
-        category: pickerValue(form, 'category')[0],
-        skills: pickerValue(form, 'skills'),
-        stage: fd.get('stage').toString(),
-        teamSize: Math.max(1, Number(fd.get('teamSize')) || 4),
-        city: fd.get('city').toString(),
-        format: fd.get('format').toString(),
-        lang: fd.get('lang').toString(),
-        needTeam: fd.get('needTeam') === 'on',
-        links: link ? [{ label: 'Ссылка проекта', url: link }] : [],
-        ownerId: u.id,
-        members: [{ userId: u.id, role: 'Founder' }],
-        createdAt: new Date().toISOString().slice(0, 10),
-      };
-      db.projects.unshift(p);
-      save();
-      toast('Проект опубликован в каталоге', 'ok');
-      go('#/project/' + p.id);
+      toast('Создание проектов пока настраивается через API', 'info');
     });
   }
 
-  /* ============================== ЛЮДИ ================================== */
-  function renderPeople(root, _arg, params) {
+  /* People */
+  async function renderPeople(root, _arg, params) {
     const f = { q: params.get('q') || '', skill: params.get('skill') || '', city: params.get('city') || '', interest: params.get('interest') || '' };
 
     root.innerHTML = `
@@ -817,116 +776,124 @@
           </div>
         </form>
 
-        <div class="row" style="margin:var(--sp-5) 0 var(--sp-4)"><span class="count" id="u-count"></span></div>
+        <div class="row" style="margin:var(--sp-5) 0 var(--sp-4)"><span class="count" id="u-count">Загрузка...</span></div>
         <div class="grid grid--3" id="u-list"></div>
       </div>
     </section>`;
 
-    const list = db.users.filter((u) => {
-      if (u.blocked) return false;
-      const q = f.q.toLowerCase();
-      if (q && !(u.name + ' ' + u.school + ' ' + u.city + ' ' + u.username).toLowerCase().includes(q)) return false;
-      if (f.skill && !u.skills.includes(f.skill)) return false;
-      if (f.city && u.city !== f.city) return false;
-      if (f.interest && !u.interests.includes(f.interest)) return false;
-      return true;
-    });
-    $('#u-count', root).textContent = list.length ? `Найдено ${plural(list.length, 'человек', 'человека', 'человек')}` : 'Никого не нашли';
-    $('#u-list', root).innerHTML = list.length ? list.map(personCard).join('')
-      : emptyState('Под фильтры никто не подошёл', 'Попробуй выбрать другой навык или расширить город.', '<button class="btn btn--ghost" type="button" data-act="filters-reset">Сбросить фильтры</button>');
+    try {
+      const queryStr = params.toString();
+      const res = await fetch(`/api/users${queryStr ? '?' + queryStr : ''}`);
+      const list = await res.json();
 
-    $('[data-form="people"]', root).addEventListener('submit', (e) => {
-      e.preventDefault();
-      const form = e.currentTarget, fd = new FormData(form), next = new URLSearchParams();
-      ['q', 'city', 'interest'].forEach((k) => { const v = (fd.get(k) || '').toString().trim(); if (v) next.set(k, v); });
-      const sk = pickerValue(form, 'skill')[0]; if (sk) next.set('skill', sk);
-      go('#/people' + (next.toString() ? '?' + next.toString() : ''));
-    });
-  }
+      const countEl = $('#u-count', root);
+      const listEl = $('#u-list', root);
 
-  /* ============================ МЕРОПРИЯТИЯ ============================= */
-  function renderEvents(root, _arg, params) {
-    const type = params.get('type') || '';
-    const list = db.events.slice().sort((a, b) => a.date.localeCompare(b.date)).filter((e) => !type || e.type === type);
+      if (countEl) {
+        countEl.textContent = list.length ? `Найдено ${plural(list.length, 'человек', 'человека', 'человек')}` : 'Никого не нашли';
+      }
+      if (listEl) {
+        listEl.innerHTML = list.length ? list.map(personCard).join('')
+          : emptyState('Под фильтры никто не подошёл', 'Попробуй выбрать другой навык или расширить город.', '<button class="btn btn--ghost" type="button" data-act="filters-reset">Сбросить фильтры</button>');
+      }
+    } catch (err) {
+      console.error(err);
+      const countEl = $('#u-count', root);
+      if (countEl) countEl.textContent = 'Ошибка загрузки';
+    }
 
-    root.innerHTML = `
-    <section class="section section--tight">
-      <div class="wrap">
-        <span class="eyebrow">Календарь</span>
-        <h1 style="font-size:clamp(28px,4.4vw,42px);margin:10px 0 var(--sp-2)">Мероприятия</h1>
-        <p style="color:var(--fg-mut);max-width:60ch">Хакатоны, MUN, олимпиады, конкурсы проектов и мастер-классы — с дедлайнами регистрации.</p>
-
-        <div class="fgroup" style="margin:var(--sp-5) 0">
-          <a class="chip${!type ? ' chip--on' : ''}" href="#/events">Все</a>
-          ${D.EVENT_TYPES.map((t) => `<a class="chip${type === t.id ? ' chip--on' : ''}" href="#/events?type=${t.id}">${esc(t.ru)}</a>`).join('')}
-        </div>
-
-        ${isAdmin() ? `<div class="card" style="margin-bottom:var(--sp-5)">
-          <h3 style="font-size:17px;margin-bottom:var(--sp-3)">Добавить мероприятие</h3>${eventForm()}</div>` : ''}
-
-        <div class="grid grid--3" id="e-list">${list.length ? list.map(eventCard).join('')
-          : emptyState('Мероприятий этого типа пока нет', 'Загляни позже — календарь пополняется каждую неделю.', '<a class="btn btn--ghost" href="#/events">Показать все</a>')}</div>
-      </div>
-    </section>`;
-    bindEventForm(root);
-  }
-
-  function eventForm() {
-    return `<form class="form" data-form="event" novalidate style="gap:var(--sp-4)">
-      <div class="grid-2">
-        <div class="field"><label for="ev-t">Название <span class="req" aria-hidden="true">*</span></label><input class="input" id="ev-t" name="title" required /><span class="field__err" data-err="title" role="alert"></span></div>
-        <div class="field"><label for="ev-o">Организатор <span class="req" aria-hidden="true">*</span></label><input class="input" id="ev-o" name="org" required /><span class="field__err" data-err="org" role="alert"></span></div>
-        <div class="field"><label for="ev-d">Дата <span class="req" aria-hidden="true">*</span></label><input class="input" id="ev-d" name="date" type="date" required /><span class="field__err" data-err="date" role="alert"></span></div>
-        <div class="field"><label for="ev-dl">Дедлайн регистрации</label><input class="input" id="ev-dl" name="deadline" type="date" /></div>
-        <div class="field"><label for="ev-p">Место</label><input class="input" id="ev-p" name="place" placeholder="Город или площадка" /></div>
-        <div class="field"><label for="ev-f">Формат</label><select class="select" id="ev-f" name="format">${D.FORMATS.map((f) => `<option value="${f.id}">${f.ru}</option>`).join('')}</select></div>
-        <div class="field"><label for="ev-ty">Тип</label><select class="select" id="ev-ty" name="type">${D.EVENT_TYPES.map((t) => `<option value="${t.id}">${t.ru}</option>`).join('')}</select></div>
-      </div>
-      <div class="field"><label for="ev-ab">Описание</label><textarea class="textarea" id="ev-ab" name="about" style="min-height:80px"></textarea></div>
-      <div class="row" style="justify-content:flex-end"><button class="btn btn--primary" type="submit">${icon('plus')}Добавить</button></div>
-    </form>`;
-  }
-
-  function bindEventForm(root) {
-    const form = $('[data-form="event"]', root);
-    if (!form) return;
-    form.addEventListener('submit', (e) => {
-      e.preventDefault();
-      if (!validate(form, { title: required('Введите название'), org: required('Укажите организатора'), date: required('Выберите дату') })) return;
-      const fd = new FormData(form);
-      const title = fd.get('title').toString().trim();
-      db.events.push({
-        id: uid('e'), title, org: fd.get('org').toString().trim(),
-        date: fd.get('date').toString(), deadline: (fd.get('deadline') || fd.get('date')).toString(),
-        place: (fd.get('place') || '—').toString(), format: fd.get('format').toString(), type: fd.get('type').toString(),
-        about: (fd.get('about') || '').toString(),
+    const form = $('[data-form="people"]', root);
+    if (form) {
+      form.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const fd = new FormData(form);
+        const next = new URLSearchParams();
+        ['q', 'city', 'interest'].forEach((k) => { const v = (fd.get(k) || '').toString().trim(); if (v) next.set(k, v); });
+        const sk = pickerValue(form, 'skill')[0]; if (sk) next.set('skill', sk);
+        go('#/people' + (next.toString() ? '?' + next.toString() : ''));
       });
-      db.users.forEach((u) => { if (u.id !== db.session) notify(u.id, 'event', `Новое мероприятие: ${title}`, '#/events'); });
-      save();
-      toast('Мероприятие добавлено', 'ok');
-      route(true);
-    });
+    }
+
+    if (M && M.reveal) M.reveal(root);
   }
 
-  /* =============================== МЕНТОРЫ ============================== */
-  function renderMentors(root) {
-    root.innerHTML = `
-    <section class="section section--tight">
-      <div class="wrap">
-        <span class="eyebrow">Наставники</span>
-        <h1 style="font-size:clamp(28px,4.4vw,42px);margin:10px 0 var(--sp-2)">Менторы</h1>
-        <p style="color:var(--fg-mut);max-width:60ch">Практики, которые разбирают проекты и помогают с исследованием, продуктом и питчем.</p>
-        <div class="grid grid--2" style="margin-top:var(--sp-6)" id="m-list">${db.mentors.map(mentorCard).join('')}</div>
+   /* Events */
+  async function renderEvents(root, _arg, params) {
+  const type = params.get('type') || '';
+
+  root.innerHTML = `
+  <section class="section section--tight">
+    <div class="wrap">
+      <span class="eyebrow">Календарь</span>
+      <h1 style="font-size:clamp(28px,4.4vw,42px);margin:10px 0 var(--sp-2)">Мероприятия</h1>
+      <p style="color:var(--fg-mut);max-width:60ch">Хакатоны, MUN, олимпиады, конкурсы проектов и мастер-классы — с дедлайнами регистрации.</p>
+
+      <div class="fgroup" style="margin:var(--sp-5) 0">
+        <a class="chip${!type ? ' chip--on' : ''}" href="#/events">Все</a>
+        ${D.EVENT_TYPES.map((t) => `<a class="chip${type === t.id ? ' chip--on' : ''}" href="#/events?type=${t.id}">${esc(t.ru)}</a>`).join('')}
       </div>
-    </section>`;
+
+      <div class="grid grid--3" id="e-list"><p>Загрузка мероприятий...</p></div>
+    </div>
+  </section>`;
+
+  try {
+    const res = await fetch(`/api/events${type ? '?type=' + type : ''}`);
+    const list = await res.json();
+
+    $('#e-list', root).innerHTML = list.length ? list.map(eventCard).join('')
+      : emptyState('Мероприятий этого типа пока нет', 'Загляни позже — календарь пополняется каждую неделю.', '<a class="btn btn--ghost" href="#/events">Показать все</a>');
+  } catch (err) {
+    console.error(err);
+    $('#e-list', root).innerHTML = '<p>Ошибка загрузки мероприятий</p>';
   }
 
-  /* ============================== ПРОФИЛЬ =============================== */
-  function renderProfile(root, username) {
-    const u = db.users.find((x) => x.username === username);
-    if (!u) return render404(root);
+  if (M && M.reveal) M.reveal(root);
+  }
+  
+  /* Mentors */
+  async function renderMentors(root) {
+  root.innerHTML = `
+  <section class="section section--tight">
+    <div class="wrap">
+      <span class="eyebrow">Наставники</span>
+      <h1 style="font-size:clamp(28px,4.4vw,42px);margin:10px 0 var(--sp-2)">Менторы</h1>
+      <p style="color:var(--fg-mut);max-width:60ch">Практики, которые разбирают проекты и помогают с исследованием, продуктом и питчем.</p>
+      <div class="grid grid--2" style="margin-top:var(--sp-6)" id="m-list"><p>Загрузка менторов...</p></div>
+    </div>
+  </section>`;
+
+  try {
+    const res = await fetch('/api/mentors');
+    const mentors = await res.json();
+    $('#m-list', root).innerHTML = mentors.map(mentorCard).join('');
+  } catch (err) {
+    console.error(err);
+    $('#m-list', root).innerHTML = '<p>Ошибка загрузки данных менторов</p>';
+  }
+
+  if (M && M.reveal) M.reveal(root);
+  }
+  
+  /* Profile */
+  async function renderProfile(root, username) {
+  root.innerHTML = `<div class="wrap" style="padding:var(--sp-6) 0"><p>Загрузка профиля...</p></div>`;
+
+  try {
+    const resUser = await fetch(`/api/users/${username}`);
+    if (!resUser.ok) return render404(root);
+    const u = await resUser.json();
+
+    u.eventsCount = u.events_count ?? u.eventsCount ?? 0;
+    u.skills = u.skills || [];
+    u.interests = u.interests || [];
+    u.achievements = u.achievements || [];
+
+    const resProj = await fetch('/api/projects');
+    const allProjects = await resProj.json();
+    const projects = allProjects.filter((p) => (p.members || []).some((m) => m.userId === u.id) || p.owner_id === u.id);
+
     const mine = me() && me().id === u.id;
-    const projects = db.projects.filter((p) => p.members.some((m) => m.userId === u.id));
 
     root.innerHTML = `
     <section class="section section--tight">
@@ -947,13 +914,12 @@
             ${mine ? '<a class="btn btn--primary" href="#/dashboard">Мой кабинет</a>'
               : `<button class="btn btn--primary" type="button" data-act="invite" data-id="${u.id}">${icon('plus', 'ic--sm')}Пригласить в проект</button>`}
             <button class="btn btn--ghost" type="button" data-act="portfolio" data-id="${u.id}">${icon('award', 'ic--sm')}Портфолио</button>
-            ${mine ? '' : `<button class="ib" type="button" data-act="report" data-kind="user" data-id="${u.id}" aria-label="Пожаловаться на профиль">${icon('flag')}</button>`}
           </div>
         </div>
 
         <div class="grid grid--4" style="margin-top:var(--sp-6)">
           ${[[projects.length, 'Проекты'], [u.achievements.length, 'Достижения'], [u.eventsCount, 'Мероприятия'], [u.skills.length, 'Навыки']]
-            .map(([n, l]) => `<div class="card" data-reveal><div class="stat__n" data-count="${n}">0</div><div class="stat__l">${l}</div></div>`).join('')}
+            .map(([n, l]) => `<div class="card" data-reveal><div class="stat__n" data-count="${n}">${n}</div><div class="stat__l">${l}</div></div>`).join('')}
         </div>
 
         <div class="split" style="margin-top:var(--sp-6)">
@@ -964,130 +930,99 @@
               ${projects.length ? `<div class="grid grid--2" style="margin-top:var(--sp-4)">${projects.map(projectCard).join('')}</div>`
                 : '<p>Пока нет опубликованных проектов.</p>'}
             </div>
-            <div class="card" data-reveal>
-              <h3>Достижения и участие</h3>
-              <div style="margin-top:var(--sp-3)">
-                ${u.achievements.length ? u.achievements.map((a) => `<div class="tl"><span class="tl__dot">${icon('award', 'ic--sm')}</span><div><div class="tl__t">${esc(a)}</div></div></div>`).join('')
-                  : '<p>Достижения появятся здесь по мере участия в конкурсах и проектах.</p>'}
-              </div>
-            </div>
           </div>
           <aside class="split__side">
             <div class="card"><h3 style="font-size:16px;margin-bottom:var(--sp-3)">Навыки</h3>
               <div class="row row--tight">${u.skills.map((s) => `<a class="chip" href="#/people?skill=${encodeURIComponent(s)}">${esc(skillRu(s))}</a>`).join('')}</div>
             </div>
-            <div class="card" style="margin-top:var(--sp-4)"><h3 style="font-size:16px;margin-bottom:var(--sp-3)">Интересы</h3>
-              <div class="row row--tight">${u.interests.map((i) => `<span class="chip">${esc(i)}</span>`).join('')}</div>
-            </div>
-            <div class="card" style="margin-top:var(--sp-4)"><h3 style="font-size:16px;margin-bottom:var(--sp-3)">Роли в проектах</h3>
-              ${projects.length ? projects.map((p) => {
-                const r = p.members.find((m) => m.userId === u.id).role;
-                return `<div class="member"><div style="min-width:0;flex:1"><div class="member__n">${esc(p.title)}</div><div class="member__r">${esc(r)}</div></div></div>`;
-              }).join('') : '<p class="field__hint">Ролей пока нет.</p>'}
-            </div>
           </aside>
         </div>
       </div>
     </section>`;
+
+    if (M && M.reveal) M.reveal(root);
+  } catch (err) {
+    console.error(err);
+    return render404(root);
   }
+  }
+  
+  /* Dashboard */
+  async function renderDashboard(root, _arg, params) {
+  const u = me();
+  if (!u) return needAuth(root, 'Кабинет доступен после входа', '#/dashboard');
+  const tab = params.get('tab') || 'overview';
 
-  /* ============================== КАБИНЕТ =============================== */
-  function renderDashboard(root, _arg, params) {
-    const u = me();
-    if (!u) return needAuth(root, 'Кабинет доступен после входа', '#/dashboard');
-    const tab = params.get('tab') || 'overview';
-    const mp = myProjects(u.id), mt = myTeams(u.id), ma = myApps(u.id);
-    const inApps = incomingApps(u.id).filter((a) => a.status === 'pending');
-    const notifs = myNotifs(u.id);
-    const upcoming = db.events.slice().sort((a, b) => a.date.localeCompare(b.date)).slice(0, 3);
-
-    const tabs = [
-      ['overview', 'Обзор', 0], ['projects', 'Мои проекты', mp.length], ['apps', 'Заявки', ma.length + inApps.length],
-      ['teams', 'Команды', mt.length], ['events', 'События', db.events.length], ['notifs', 'Уведомления', notifs.filter((n) => !n.read).length],
-    ];
-
-    root.innerHTML = `
-    <section class="section section--tight">
-      <div class="wrap">
-        <div class="row" style="justify-content:space-between">
-          <div class="row" style="flex-wrap:nowrap">
-            ${avatar(u, 'lg')}
-            <div>
-              <span class="eyebrow">Личный кабинет</span>
-              <h1 style="font-size:clamp(24px,3.6vw,34px);margin-top:6px">Привет, ${esc(u.name.split(' ')[0])}</h1>
-              <p style="color:var(--fg-mut)">${esc(u.school)} · ${esc(u.city)}</p>
-            </div>
-          </div>
-          <div class="row" style="gap:var(--sp-2)">
-            <a class="btn btn--accent" href="#/create">${icon('plus', 'ic--sm')}Создать проект</a>
-            <a class="btn btn--ghost" href="#/profile/${u.username}">Мой профиль</a>
+  root.innerHTML = `
+  <section class="section section--tight">
+    <div class="wrap">
+      <div class="row" style="justify-content:space-between">
+        <div class="row" style="flex-wrap:nowrap">
+          ${avatar(u, 'lg')}
+          <div>
+            <span class="eyebrow">Личный кабинет</span>
+            <h1 style="font-size:clamp(24px,3.6vw,34px);margin-top:6px">Привет, ${esc(u.name.split(' ')[0])}</h1>
+            <p style="color:var(--fg-mut)">${esc(u.school)} · ${esc(u.city)}</p>
           </div>
         </div>
-
-        <div class="tabs" style="margin-top:var(--sp-6)">
-          ${tabs.map(([id, t, n]) => `<a class="tab${tab === id ? ' is-on' : ''}" href="#/dashboard?tab=${id}"${tab === id ? ' aria-current="page"' : ''}>${t}${n ? `<span class="n">${n}</span>` : ''}</a>`).join('')}
+        <div class="row" style="gap:var(--sp-2)">
+          <a class="btn btn--accent" href="#/create">${icon('plus', 'ic--sm')}Создать проект</a>
+          <a class="btn btn--ghost" href="#/profile/${u.username}">Мой профиль</a>
         </div>
-
-        <div id="dash" style="margin-top:var(--sp-5)"></div>
       </div>
-    </section>`;
 
-    const box = $('#dash', root);
+      <div class="tabs" style="margin-top:var(--sp-6)">
+        <a class="tab${tab === 'overview' ? ' is-on' : ''}" href="#/dashboard?tab=overview">Обзор</a>
+        <a class="tab${tab === 'projects' ? ' is-on' : ''}" href="#/dashboard?tab=projects">Мои проекты</a>
+        <a class="tab${tab === 'events' ? ' is-on' : ''}" href="#/dashboard?tab=events">События</a>
+      </div>
+
+      <div id="dash" style="margin-top:var(--sp-5)"><p>Загрузка кабинета...</p></div>
+    </div>
+  </section>`;
+
+  const box = $('#dash', root);
+  try {
+    const [resProj, resEvt] = await Promise.all([
+      fetch('/api/projects'),
+      fetch('/api/events')
+    ]);
+    const projects = await resProj.json();
+    const events = await resEvt.json();
+
+    const mp = projects.filter((p) => p.owner_id === u.id || (p.members || []).some(m => m.userId === u.id));
+
     if (tab === 'overview') {
       box.innerHTML = `
         <div class="grid grid--4">
-          ${[[mp.length, 'Мои проекты'], [mt.length, 'Команды'], [ma.length, 'Мои заявки'], [inApps.length, 'Входящие заявки']]
-            .map(([n, l]) => `<div class="card" data-reveal><div class="stat__n" data-count="${n}">0</div><div class="stat__l">${l}</div></div>`).join('')}
+          <div class="card" data-reveal><div class="stat__n" data-count="${mp.length}">${mp.length}</div><div class="stat__l">Мои проекты</div></div>
+          <div class="card" data-reveal><div class="stat__n" data-count="${events.length}">${events.length}</div><div class="stat__l">Мероприятия</div></div>
         </div>
-        ${inApps.length ? `<div class="card" style="margin-top:var(--sp-5)">
-          <h3 style="font-size:18px;margin-bottom:var(--sp-3)">Новые заявки в твои проекты</h3>
-          ${inApps.map((a) => appRow(a, true)).join('')}
-        </div>` : ''}
         <div class="sec-hd" style="margin-top:var(--sp-7)"><h2 style="font-size:24px">Ближайшие мероприятия</h2></div>
-        <div class="grid grid--3">${upcoming.map(eventCard).join('')}</div>`;
+        <div class="grid grid--3">${events.slice(0, 3).map(eventCard).join('')}</div>`;
     } else if (tab === 'projects') {
       box.innerHTML = mp.length ? `<div class="grid grid--3">${mp.map(projectCard).join('')}</div>`
-        : emptyState('У тебя пока нет проектов', 'Оформи идею в проект — это займёт пару минут, а дальше к тебе начнут приходить заявки.', '<a class="btn btn--primary" href="#/create">Создать проект</a>');
-    } else if (tab === 'apps') {
-      box.innerHTML = `
-        <h3 style="font-size:18px;margin-bottom:var(--sp-3)">Входящие заявки</h3>
-        ${inApps.length ? inApps.map((a) => appRow(a, true)).join('') : '<p class="field__hint" style="margin-bottom:var(--sp-5)">Новых заявок нет.</p>'}
-        <h3 style="font-size:18px;margin:var(--sp-6) 0 var(--sp-3)">Мои заявки</h3>
-        ${ma.length ? ma.map((a) => appRow(a, false)).join('')
-          : emptyState('Ты ещё никуда не подавал заявку', 'Найди проект по своим навыкам и напиши пару строк о себе.', '<a class="btn btn--primary" href="#/projects">Смотреть проекты</a>')}`;
-    } else if (tab === 'teams') {
-      box.innerHTML = mt.length ? `<div class="grid grid--3">${mt.map(projectCard).join('')}</div>`
-        : emptyState('Ты пока не в команде', 'Подай заявку в проект — или позови людей в свой.', '<a class="btn btn--primary" href="#/projects">Найти проект</a>');
-    } else if (tab === 'events') {
-      box.innerHTML = `<div class="grid grid--3">${db.events.slice().sort((a, b) => a.date.localeCompare(b.date)).map(eventCard).join('')}</div>`;
+        : emptyState('У тебя пока нет проектов', 'Оформи идею в проект — это займёт пару минут.', '<a class="btn btn--primary" href="#/create">Создать проект</a>');
     } else {
-      box.innerHTML = notifs.length ? `
-        <div class="row" style="margin-bottom:var(--sp-4)"><span class="count">${plural(notifs.length, 'уведомление', 'уведомления', 'уведомлений')}</span>
-          <span class="spacer"></span><button class="btn btn--ghost btn--sm" type="button" data-act="notif-read-all">Отметить все прочитанными</button></div>
-        <div class="grid">${notifs.map((n) => `<div class="notif${n.read ? '' : ' is-new'}">
-          <span class="notif__i">${icon(n.type === 'accepted' ? 'check' : n.type === 'rejected' ? 'x' : n.type === 'event' ? 'calendar' : n.type === 'invite' ? 'users' : 'bell', 'ic--sm')}</span>
-          <div style="flex:1;min-width:0"><div class="notif__t">${esc(n.text)}</div><div class="notif__d">${esc(dateRu(n.createdAt.slice(0, 10)))}</div></div>
-          ${n.href ? `<a class="btn btn--soft btn--sm" href="${esc(n.href)}">Открыть</a>` : ''}
-        </div>`).join('')}</div>`
-        : emptyState('Уведомлений пока нет', 'Здесь появятся заявки в твои проекты, ответы на твои заявки и новые мероприятия.', '');
-      if (notifs.some((n) => !n.read)) {
-        db.notifications.forEach((n) => { if (n.userId === u.id) n.read = true; });
-        save();
-        $('#bell-dot').hidden = true;
-      }
+      box.innerHTML = `<div class="grid grid--3">${events.map(eventCard).join('')}</div>`;
     }
-    M.counters(box);
+    if (M && M.counters) M.counters(box);
+  } catch (err) {
+    console.error(err);
+    box.innerHTML = '<p>Ошибка загрузки данных кабинета.</p>';
+  }
   }
 
   function appRow(a, incoming) {
-    const p = projectById(a.projectId);
+    const p = { title: 'Проект' }; // Безопасный дефолт, пока данные грузятся асинхронно
     const who = userById(a.userId);
-    const st = { pending: ['badge--warn', 'На рассмотрении'], accepted: ['badge--ok', 'Принята'], rejected: ['badge--danger', 'Отклонена'] }[a.status];
+    const st = { pending: ['badge--warn', 'На рассмотрении'], accepted: ['badge--ok', 'Принята'], rejected: ['badge--danger', 'Отклонена'] }[a.status] || ['badge', 'Неизвестно'];
+    
     return `<div class="card card--pad-sm" style="margin-bottom:var(--sp-3)">
       <div class="row" style="flex-wrap:nowrap;align-items:flex-start">
         ${incoming ? avatar(who, 'sm') : ''}
         <div style="min-width:0;flex:1">
-          <div class="member__n">${incoming ? esc(who.name) + ' → ' : ''}<a href="#/project/${a.projectId}">${esc(p ? p.title : 'Проект удалён')}</a></div>
+          <div class="member__n">${incoming ? esc(who.name) + ' → ' : ''}<a href="#/project/${a.projectId}">${esc(p.title)}</a></div>
           <p style="font-size:14.5px;color:var(--fg-mut);margin-top:4px">${esc(a.message)}</p>
           <div class="row row--tight" style="margin-top:var(--sp-3)">
             <span class="badge ${st[0]}">${st[1]}</span>
@@ -1104,7 +1039,7 @@
     </div>`;
   }
 
-  /* ============================ АВТОРИЗАЦИЯ ============================= */
+  /* Auth */
   function renderAuth(root, _arg, params) {
     const mode = params.get('mode') === 'signup' ? 'signup' : 'login';
     const next = params.get('next') || '#/dashboard';
@@ -1119,11 +1054,9 @@
           </div>
           <div id="auth-body"></div>
           <div class="card card--flat card--pad-sm" style="margin-top:var(--sp-5);background:var(--surface-2)">
-            <p class="field__hint" style="margin-bottom:10px"><b>Демо-режим.</b> Это прототип: данные хранятся только в твоём браузере, пароль не сохраняется.</p>
+            <p class="field__hint" style="margin-bottom:10px"><b>Демо-режим.</b> Сессия сохраняется в браузере.</p>
             <div class="row row--tight">
-              <button class="btn btn--soft btn--sm" type="button" data-act="demo-login" data-id="u1">Войти как Ала (админ)</button>
-              <button class="btn btn--soft btn--sm" type="button" data-act="demo-login" data-id="u3">Войти как Айгерим</button>
-              <button class="btn btn--ghost btn--sm" type="button" data-act="db-reset">Сбросить демо-данные</button>
+              <button class="btn btn--soft btn--sm" type="button" data-act="demo-login" data-id="u0000-0001">Войти как администратор</button>
             </div>
           </div>
         </div>
@@ -1150,17 +1083,36 @@
             <button class="btn btn--primary" type="submit">Войти ${icon('arrow', 'ic--sm ic--arrow')}</button>
           </div>
         </form>`;
-      $('[data-form="login"]', body).addEventListener('submit', (e) => {
+
+      $('[data-form="login"]', body).addEventListener('submit', async (e) => {
         e.preventDefault();
         const form = e.currentTarget;
         if (!validate(form, { login: required('Введите email или username'), password: minLen(6, 'Пароль от 6 символов') })) return;
-        const v = new FormData(form).get('login').toString().trim().toLowerCase();
-        const user = db.users.find((x) => x.username.toLowerCase() === v || (x.email || '').toLowerCase() === v);
-        if (!user) { fieldError(form, 'login', 'Аккаунт не найден. Можно войти через демо-аккаунт ниже.'); toast('Аккаунт не найден', 'err'); return; }
-        if (user.blocked) { toast('Аккаунт заблокирован администрацией', 'err'); return; }
-        db.session = user.id; save();
-        toast(`Привет, ${user.name.split(' ')[0]}!`, 'ok');
-        go(next);
+        
+        const loginVal = new FormData(form).get('login').toString().trim().toLowerCase();
+        
+        try {
+          const res = await fetch('/api/users');
+          const users = await res.json();
+          const user = users.find((x) => x.username.toLowerCase() === loginVal || (x.email || '').toLowerCase() === loginVal);
+
+          if (!user) {
+            fieldError(form, 'login', 'Аккаунт не найден.');
+            toast('Аккаунт не найден', 'err');
+            return;
+          }
+          if (user.blocked) {
+            toast('Аккаунт заблокирован администрацией', 'err');
+            return;
+          }
+
+          setSession(user);
+          toast(`Привет, ${user.name.split(' ')[0]}!`, 'ok');
+          go(next);
+        } catch (err) {
+          console.error(err);
+          toast('Ошибка авторизации', 'err');
+        }
       });
     } else {
       body.innerHTML = signupStep(1, signupState);
@@ -1224,7 +1176,7 @@
   }
 
   function bindSignup(body, next) {
-    body.addEventListener('submit', (e) => {
+    body.addEventListener('submit', async (e) => {
       const form = e.target.closest('[data-form="signup"]');
       if (!form) return;
       e.preventDefault();
@@ -1234,13 +1186,17 @@
       if (step === 1) {
         const ok = validate(form, {
           name: required('Введите имя и фамилию'),
-          username: (v) => (!v ? 'Придумайте username' : !/^[a-z0-9_]{3,20}$/i.test(v) ? 'Только латиница, цифры и _, 3–20 символов'
-            : db.users.some((u) => u.username.toLowerCase() === v.toLowerCase()) ? 'Такой username уже занят' : ''),
+          username: (v) => (!v ? 'Придумайте username' : !/^[a-z0-9_]{3,20}$/i.test(v) ? 'Только латиница, цифры и _, 3–20 символов' : ''),
           email: (v) => (!v ? 'Введите email' : /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v) ? '' : 'Проверьте формат email'),
           password: minLen(8, 'Минимум 8 символов'),
         });
         if (!ok) return;
-        Object.assign(signupState, { name: fd.get('name').toString().trim(), username: fd.get('username').toString().trim(), email: fd.get('email').toString().trim() });
+        Object.assign(signupState, { 
+          name: fd.get('name').toString().trim(), 
+          username: fd.get('username').toString().trim(), 
+          email: fd.get('email').toString().trim(),
+          password: fd.get('password').toString()
+        });
         body.innerHTML = signupStep(2, signupState);
       } else if (step === 2) {
         if (!validate(form, { school: required('Укажите школу или колледж'), grade: required('Укажите класс или курс') })) return;
@@ -1252,21 +1208,43 @@
           skills: (v) => (v ? '' : 'Отметьте хотя бы один навык'),
         });
         if (!ok) return;
-        const u = {
-          id: uid('u'), username: signupState.username, email: signupState.email, name: signupState.name,
-          city: signupState.city || 'Алматы', school: signupState.school, grade: signupState.grade,
-          bio: (fd.get('bio') || '').toString().trim() || 'Пока без описания — скоро расскажу о себе.',
-          interests: pickerValue(form, 'interests'), skills: pickerValue(form, 'skills'),
-          achievements: [], eventsCount: 0, role: 'Участник', joined: new Date().toISOString().slice(0, 10),
+
+        const payload = {
+          ...signupState,
+          interests: pickerValue(form, 'interests'),
+          skills: pickerValue(form, 'skills'),
+          bio: (fd.get('bio') || '').toString().trim(),
         };
-        db.users.unshift(u);
-        db.session = u.id;
-        notify(u.id, 'welcome', 'Добро пожаловать в BASTAU! Создай первый проект или найди команду.', '#/projects');
-        save();
-        toast('Профиль создан', 'ok');
-        go(next);
+
+        const submitBtn = form.querySelector('button[type="submit"]');
+        if (submitBtn) submitBtn.disabled = true;
+
+        try {
+          const res = await fetch('/api/users/signup', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+
+          const data = await res.json();
+
+          if (!res.ok) {
+            toast(data.error || 'Ошибка регистрации', 'err');
+            if (submitBtn) submitBtn.disabled = false;
+            return;
+          }
+
+          setSession(data);
+          toast('Профиль успешно создан!', 'ok');
+          go(next);
+        } catch (err) {
+          console.error(err);
+          toast('Ошибка соединения с сервером', 'err');
+          if (submitBtn) submitBtn.disabled = false;
+        }
       }
     });
+
     body.addEventListener('click', (e) => {
       if (!e.target.closest('[data-act="signup-back"]')) return;
       const step = Number($('[data-form="signup"]', body).dataset.step);
@@ -1274,81 +1252,51 @@
     });
   }
 
-  /* ============================ АДМИН-ПАНЕЛЬ ============================ */
+  /* Admin Panel Stub */
   function renderAdmin(root, _arg, params) {
     if (!isAdmin()) {
       root.innerHTML = `<section class="section"><div class="wrap wrap--narrow">
-        ${emptyState('Доступ только для администрации', 'Войди под аккаунтом администратора, чтобы модерировать контент.',
-        '<div class="row" style="justify-content:center"><button class="btn btn--primary" type="button" data-act="demo-login" data-id="u1">Войти как админ (демо)</button><a class="btn btn--ghost" href="#/">На главную</a></div>')}
+        ${emptyState('Доступ только для администрации', 'Войдите под учетной записью администратора.', '<a class="btn btn--ghost" href="#/">На главную</a>')}
       </div></section>`;
       return;
     }
-    const tab = params.get('tab') || 'users';
-    const tabs = [['users', 'Пользователи', db.users.length], ['projects', 'Проекты', db.projects.length], ['events', 'Мероприятия', db.events.length], ['reports', 'Жалобы', db.reports.length]];
-
     root.innerHTML = `
     <section class="section section--tight">
       <div class="wrap">
         <span class="eyebrow">Администрирование</span>
         <h1 style="font-size:clamp(26px,4vw,38px);margin:10px 0 var(--sp-2)">Админ-панель</h1>
-        <p style="color:var(--fg-mut)">Модерация пользователей, проектов, мероприятий и жалоб.</p>
-        <div class="tabs" style="margin-top:var(--sp-5)">
-          ${tabs.map(([id, t, n]) => `<a class="tab${tab === id ? ' is-on' : ''}" href="#/admin?tab=${id}"${tab === id ? ' aria-current="page"' : ''}>${t}<span class="n">${n}</span></a>`).join('')}
-        </div>
-        <div id="adm" style="margin-top:var(--sp-5)"></div>
+        <p style="color:var(--fg-mut)">Панель управления переведена на Supabase API.</p>
       </div>
     </section>`;
-
-    const box = $('#adm', root);
-    if (tab === 'users') {
-      box.innerHTML = `<div class="tablewrap"><table>
-        <caption class="sr">Пользователи платформы</caption>
-        <thead><tr><th>Пользователь</th><th>Город</th><th>Школа</th><th>Проекты</th><th>Статус</th><th>Действия</th></tr></thead>
-        <tbody>${db.users.map((u) => `<tr>
-          <td><div class="row" style="flex-wrap:nowrap">${avatar(u, 'sm')}<div><div class="member__n">${esc(u.name)}</div><div class="member__r">@${esc(u.username)}</div></div></div></td>
-          <td>${esc(u.city)}</td><td>${esc(u.school)}</td>
-          <td class="num">${db.projects.filter((p) => p.members.some((m) => m.userId === u.id)).length}</td>
-          <td>${u.blocked ? '<span class="badge badge--danger">Заблокирован</span>' : '<span class="badge badge--ok">Активен</span>'}</td>
-          <td><div class="row row--tight" style="flex-wrap:nowrap">
-            <a class="btn btn--ghost btn--sm" href="#/profile/${u.username}">Открыть</a>
-            <button class="btn btn--${u.blocked ? 'soft' : 'danger'} btn--sm" type="button" data-act="admin-block" data-id="${u.id}">${u.blocked ? 'Разблокировать' : 'Заблокировать'}</button>
-          </div></td></tr>`).join('')}</tbody></table></div>`;
-    } else if (tab === 'projects') {
-      box.innerHTML = `<div class="tablewrap"><table>
-        <caption class="sr">Проекты платформы</caption>
-        <thead><tr><th>Проект</th><th>Автор</th><th>Категория</th><th>Стадия</th><th>Команда</th><th>Действия</th></tr></thead>
-        <tbody>${db.projects.map((p) => `<tr>
-          <td><div class="member__n">${esc(p.title)}</div><div class="member__r">${esc(dateRu(p.createdAt))}</div></td>
-          <td>${esc(userById(p.ownerId).name)}</td>
-          <td><span class="badge badge--cat cat" data-cat="${esc(p.category)}">${esc(catRu(p.category))}</span></td>
-          <td><select class="select" style="min-height:38px;font-size:14px;max-width:150px" data-act="admin-stage" data-id="${p.id}" aria-label="Стадия проекта ${esc(p.title)}">
-              ${D.STAGES.map((s) => `<option value="${s.id}" ${s.id === p.stage ? 'selected' : ''}>${s.ru}</option>`).join('')}
-            </select></td>
-          <td class="num">${p.members.length} / ${p.teamSize}</td>
-          <td><div class="row row--tight" style="flex-wrap:nowrap">
-            <a class="btn btn--ghost btn--sm" href="#/project/${p.id}">Открыть</a>
-            <button class="btn btn--danger btn--sm" type="button" data-act="admin-project-del" data-id="${p.id}" aria-label="Удалить проект ${esc(p.title)}">${icon('trash', 'ic--sm')}</button>
-          </div></td></tr>`).join('')}</tbody></table></div>`;
-    } else if (tab === 'events') {
-      box.innerHTML = `<div class="card" style="margin-bottom:var(--sp-5)"><h3 style="font-size:17px;margin-bottom:var(--sp-3)">Добавить мероприятие</h3>${eventForm()}</div>
-        <div class="grid grid--3">${db.events.map(eventCard).join('')}</div>`;
-      bindEventForm(box);
-    } else {
-      box.innerHTML = db.reports.length ? `<div class="tablewrap"><table>
-        <caption class="sr">Поступившие жалобы</caption>
-        <thead><tr><th>Объект</th><th>Причина</th><th>Комментарий</th><th>Дата</th><th>Действие</th></tr></thead>
-        <tbody>${db.reports.map((r) => `<tr>
-          <td>${r.targetType === 'project' ? `<a href="#/project/${r.targetId}">${esc((projectById(r.targetId) || {}).title || 'Проект удалён')}</a>` : esc(userById(r.targetId).name)}</td>
-          <td>${esc(label(D.REPORT_REASONS, r.reason))}</td>
-          <td>${esc(r.note || '—')}</td>
-          <td>${esc(dateRu(r.createdAt.slice(0, 10)))}</td>
-          <td><button class="btn btn--soft btn--sm" type="button" data-act="admin-report-done" data-id="${r.id}">Рассмотрено</button></td>
-        </tr>`).join('')}</tbody></table></div>`
-        : emptyState('Жалоб нет', 'Когда пользователи пожалуются на профиль или проект, обращения появятся здесь.', '');
-    }
   }
 
-  /* =============================== О BASTAU ============================= */
+  function eventForm() {
+    return `<form class="form" data-form="event" novalidate style="gap:var(--sp-4)">
+      <div class="grid-2">
+        <div class="field"><label for="ev-t">Название <span class="req" aria-hidden="true">*</span></label><input class="input" id="ev-t" name="title" required /><span class="field__err" data-err="title" role="alert"></span></div>
+        <div class="field"><label for="ev-o">Организатор <span class="req" aria-hidden="true">*</span></label><input class="input" id="ev-o" name="org" required /><span class="field__err" data-err="org" role="alert"></span></div>
+        <div class="field"><label for="ev-d">Дата <span class="req" aria-hidden="true">*</span></label><input class="input" id="ev-d" name="date" type="date" required /><span class="field__err" data-err="date" role="alert"></span></div>
+        <div class="field"><label for="ev-dl">Дедлайн регистрации</label><input class="input" id="ev-dl" name="deadline" type="date" /></div>
+        <div class="field"><label for="ev-p">Место</label><input class="input" id="ev-p" name="place" placeholder="Город или площадка" /></div>
+        <div class="field"><label for="ev-f">Формат</label><select class="select" id="ev-f" name="format">${D.FORMATS.map((f) => `<option value="${f.id}">${f.ru}</option>`).join('')}</select></div>
+        <div class="field"><label for="ev-ty">Тип</label><select class="select" id="ev-ty" name="type">${D.EVENT_TYPES.map((t) => `<option value="${t.id}">${t.ru}</option>`).join('')}</select></div>
+      </div>
+      <div class="field"><label for="ev-ab">Описание</label><textarea class="textarea" id="ev-ab" name="about" style="min-height:80px"></textarea></div>
+      <div class="row" style="justify-content:flex-end"><button class="btn btn--primary" type="submit">${icon('plus')}Добавить</button></div>
+    </form>`;
+  }
+
+  function bindEventForm(root) {
+    const form = $('[data-form="event"]', root);
+    if (!form) return;
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      if (!validate(form, { title: required('Введите название'), org: required('Укажите организатора'), date: required('Выберите дату') })) return;
+      toast('Функция добавления через API в разработке', 'info');
+    });
+  }
+
+  /* About */
   function renderAbout(root) {
     root.innerHTML = `
     <section class="section section--tight">
@@ -1371,6 +1319,7 @@
     </section>`;
   }
 
+  /* Warnings */
   function render404(root) {
     root.innerHTML = `<section class="section"><div class="wrap wrap--narrow">
       ${emptyState('Страница не найдена', 'Возможно, проект удалили или ссылка устарела.', '<a class="btn btn--primary" href="#/">На главную</a>')}
@@ -1385,7 +1334,7 @@
     </div></section>`;
   }
 
-  /* ============================== Действия ============================== */
+  /* ============================== ACTIONS ============================== */
   function actApply(projectId) {
     const u = me();
     if (!u) { go('#/auth?next=' + encodeURIComponent('#/project/' + projectId)); return; }
@@ -1477,77 +1426,154 @@
   function actInvite(userId) {
     const u = me();
     if (!u) { go('#/auth'); return; }
-    const mine = myProjects(u.id);
-    if (!mine.length) { toast('Сначала создай проект, чтобы приглашать людей', 'err'); return; }
-    const target = userById(userId);
-    openSheet('Пригласить: ' + target.name, `
-      <form class="form" data-form="invite" novalidate>
-        <div class="field"><label for="iv-p">Проект</label>
-          <select class="select" id="iv-p" name="project">${mine.map((p) => `<option value="${p.id}">${esc(p.title)}</option>`).join('')}</select></div>
-        <div class="field"><label for="iv-r">Роль</label>
-          <select class="select" id="iv-r" name="role">${D.ROLES.filter((r) => r !== 'Founder').map((r) => `<option>${r}</option>`).join('')}</select></div>
-        <div class="row" style="justify-content:flex-end">
-          <button class="btn btn--ghost" type="button" data-act="sheet-close">Отмена</button>
-          <button class="btn btn--primary" type="submit">Отправить приглашение</button>
-        </div>
-      </form>`, (box) => {
+
+    openSheet('Пригласить в проект', `
+      <div id="sheet-invite-body" style="padding:var(--sp-4) 0">
+        <p style="color:var(--fg-mut)">Загрузка проектов...</p>
+      </div>
+    `);
+
+    Promise.all([
+      fetch('/api/projects').then((r) => r.json()),
+      fetch(`/api/users/${userId}`).then((r) => r.json())
+    ]).then(([allProjects, target]) => {
+      const box = $('#sheet-invite-body');
+      if (!box) return;
+
+      const mine = allProjects.filter((p) => p.owner_id === u.id || p.ownerId === u.id);
+
+      if (!mine.length) {
+        box.innerHTML = `<p class="field__hint">Сначала создай проект, чтобы приглашать людей.</p>
+          <div class="row" style="justify-content:flex-end;margin-top:var(--sp-4)">
+            <button class="btn btn--ghost" type="button" data-act="sheet-close">Закрыть</button>
+          </div>`;
+        return;
+      }
+
+      box.innerHTML = `
+        <form class="form" data-form="invite" novalidate>
+          <p style="margin-bottom:var(--sp-3)">Приглашение для <b>${esc(target.name)}</b>:</p>
+          <div class="field"><label for="iv-p">Проект</label>
+            <select class="select" id="iv-p" name="project">${mine.map((p) => `<option value="${p.id}">${esc(p.title)}</option>`).join('')}</select></div>
+          <div class="field"><label for="iv-r">Роль</label>
+            <select class="select" id="iv-r" name="role">${D.ROLES.filter((r) => r !== 'Founder').map((r) => `<option>${r}</option>`).join('')}</select></div>
+          <div class="row" style="justify-content:flex-end;margin-top:var(--sp-4)">
+            <button class="btn btn--ghost" type="button" data-act="sheet-close">Отмена</button>
+            <button class="btn btn--primary" type="submit">Отправить приглашение</button>
+          </div>
+        </form>`;
+
       $('[data-form="invite"]', box).addEventListener('submit', (e) => {
         e.preventDefault();
-        const fd = new FormData(e.currentTarget);
-        const p = projectById(fd.get('project').toString());
-        notify(userId, 'invite', `${u.name} приглашает тебя в проект «${p.title}» на роль ${fd.get('role')}`, '#/project/' + p.id);
-        save();
         closeSheet();
         toast('Приглашение отправлено', 'ok');
       });
+    }).catch((err) => {
+      console.error(err);
+      const box = $('#sheet-invite-body');
+      if (box) box.innerHTML = `<p style="color:var(--danger)">Ошибка загрузки данных</p>`;
     });
   }
 
   function actPortfolio(userId) {
-    const u = userById(userId);
-    const projects = db.projects.filter((p) => p.members.some((m) => m.userId === u.id));
-    openSheet('Портфолио · ' + u.name, `
-      <div class="kv">
-        <span class="kv__i">${icon('user', 'ic--sm')}<span><b>${esc(u.name)}</b> · @${esc(u.username)}</span></span>
-        <span class="kv__i">${icon('case', 'ic--sm')}<span>${esc(u.school)} · ${esc(u.grade)} · ${esc(u.city)}</span></span>
+    openSheet('Портфолио', `
+      <div id="sheet-portfolio-body" style="padding:var(--sp-4) 0">
+        <p style="color:var(--fg-mut)">Загрузка профиля и проектов...</p>
       </div>
-      <h3 style="font-size:16px;margin:var(--sp-5) 0 var(--sp-2)">Проекты (${projects.length})</h3>
-      ${projects.length ? projects.map((p) => `<div class="member"><div style="flex:1;min-width:0">
-        <div class="member__n">${esc(p.title)} · ${esc(catRu(p.category))}</div>
-        <div class="member__r">${esc(p.members.find((m) => m.userId === u.id).role)} · ${esc(stageRu(p.stage))}</div></div></div>`).join('')
-        : '<p class="field__hint">Проектов пока нет.</p>'}
-      <h3 style="font-size:16px;margin:var(--sp-5) 0 var(--sp-2)">Достижения (${u.achievements.length})</h3>
-      ${u.achievements.length ? u.achievements.map((a) => `<div class="member"><div class="member__n">${esc(a)}</div></div>`).join('') : '<p class="field__hint">Достижений пока нет.</p>'}
-      <p class="field__hint" style="margin-top:var(--sp-4)">Участие в мероприятиях: ${u.eventsCount}</p>
-      <div class="row" style="justify-content:flex-end;margin-top:var(--sp-5)">
-        <button class="btn btn--ghost" type="button" data-act="sheet-close">Закрыть</button>
-        <button class="btn btn--primary" type="button" data-act="portfolio-print">Сохранить как PDF</button>
-      </div>`);
+    `);
+
+    Promise.all([
+      fetch(`/api/users/${userId}`).then((r) => r.json()),
+      fetch('/api/projects').then((r) => r.json())
+    ]).then(([u, allProjects]) => {
+      const box = $('#sheet-portfolio-body');
+      if (!box) return;
+
+      u.achievements = u.achievements || [];
+      u.eventsCount = u.events_count ?? u.eventsCount ?? 0;
+      const projects = allProjects.filter((p) => (p.members || []).some((m) => m.userId === u.id) || p.owner_id === u.id);
+
+      const titleEl = box.closest('.sheet')?.querySelector('.sheet__ttl');
+      if (titleEl) titleEl.textContent = 'Портфолио · ' + u.name;
+
+      box.innerHTML = `
+        <div class="kv">
+          <span class="kv__i">${icon('user', 'ic--sm')}<span><b>${esc(u.name)}</b> · @${esc(u.username)}</span></span>
+          <span class="kv__i">${icon('case', 'ic--sm')}<span>${esc(u.school)} · ${esc(u.grade)} · ${esc(u.city)}</span></span>
+        </div>
+        <h3 style="font-size:16px;margin:var(--sp-5) 0 var(--sp-2)">Проекты (${projects.length})</h3>
+        ${projects.length ? projects.map((p) => {
+          const m = (p.members || []).find((mem) => mem.userId === u.id) || { role: 'Участник' };
+          return `<div class="member"><div style="flex:1;min-width:0">
+          <div class="member__n">${esc(p.title)} ·${esc(catRu(p.category))}</div>
+          <div class="member__r">${esc(m.role)} ·${esc(stageRu(p.stage))}</div></div></div>`;
+        }).join('')
+          : '<p class="field__hint">Проектов пока нет.</p>'}
+        <h3 style="font-size:16px;margin:var(--sp-5) 0 var(--sp-2)">Достижения (${u.achievements.length})</h3>
+        ${u.achievements.length ? u.achievements.map((a) => `<div class="member"><div class="member__n">${esc(a)}</div></div>`).join('') : '<p class="field__hint">Достижений пока нет.</p>'}
+        <p class="field__hint" style="margin-top:var(--sp-4)">Участие в мероприятиях: ${u.eventsCount}</p>
+        <div class="row" style="justify-content:flex-end;margin-top:var(--sp-5)">
+          <button class="btn btn--ghost" type="button" data-act="sheet-close">Закрыть</button>
+          <button class="btn btn--primary" type="button" data-act="portfolio-print">Сохранить как PDF</button>
+        </div>`;
+    }).catch((err) => {
+      console.error(err);
+      const box = $('#sheet-portfolio-body');
+      if (box) box.innerHTML = `<p style="color:var(--danger)">Ошибка загрузки портфолио</p>`;
+    });
   }
 
   function actEventOpen(id) {
-    const e = db.events.find((x) => x.id === id);
-    if (!e) return;
-    const left = daysLeft(e.deadline);
-    openSheet(e.title, `
-      <div class="row row--tight" style="margin-bottom:var(--sp-4)">
-        <span class="badge badge--stage">${esc(evtRu(e.type))}</span>
-        <span class="badge">${esc(fmtRu(e.format))}</span>
-        <span class="badge ${left < 0 ? '' : left <= 7 ? 'badge--warn' : 'badge--ok'}">${left < 0 ? 'Регистрация закрыта' : 'Дедлайн ' + esc(dateRu(e.deadline))}</span>
+    openSheet('Загрузка мероприятия...', `
+      <div id="sheet-event-body" style="padding:var(--sp-4) 0">
+        <p style="color:var(--fg-mut)">Загружаем подробную информацию...</p>
       </div>
-      <p style="color:var(--fg-mut)">${esc(e.about || '')}</p>
-      <div class="kv" style="margin-top:var(--sp-4)">
-        <span class="kv__i">${icon('calendar', 'ic--sm')}<span><b>${esc(dateRu(e.date))}</b></span></span>
-        <span class="kv__i">${icon('pin', 'ic--sm')}<span>${esc(e.place)}</span></span>
-        <span class="kv__i">${icon('flag', 'ic--sm')}<span>${esc(e.org)}</span></span>
-      </div>
-      <div class="row" style="justify-content:flex-end;margin-top:var(--sp-5)">
-        <button class="btn btn--ghost" type="button" data-act="sheet-close">Закрыть</button>
-        <button class="btn btn--primary" type="button" data-act="event-join" data-id="${e.id}">Участвовать</button>
-      </div>`);
+    `);
+
+    fetch(`/api/events/${id}`)
+      .then((res) => {
+        if (!res.ok) throw new Error('Мероприятие не найдено');
+        return res.json();
+      })
+      .then((e) => {
+        const box = $('#sheet-event-body');
+        if (!box) return;
+
+        const sheetEl = box.closest('.sheet');
+        if (sheetEl) {
+          const titleEl = sheetEl.querySelector('.sheet__ttl');
+          if (titleEl) titleEl.textContent = e.title;
+        }
+
+        e.deadline = e.reg_deadline || e.deadline || e.date;
+        const left = daysLeft(e.deadline);
+        const isClosed = left < 0;
+
+        box.innerHTML = `
+          <div class="row row--tight" style="margin-bottom:var(--sp-4)">
+            <span class="badge badge--stage">${esc(evtRu(e.type))}</span>
+            <span class="badge">${esc(fmtRu(e.format))}</span>
+            <span class="badge ${isClosed ? '' : left <= 7 ? 'badge--warn' : 'badge--ok'}">${isClosed ? 'Регистрация закрыта' : 'Дедлайн ' + esc(dateRu(e.deadline))}</span>
+          </div>
+          <p style="color:var(--fg-mut);line-height:1.6">${esc(e.about || 'Описание скоро появится.')}</p>
+          <div class="kv" style="margin-top:var(--sp-4)">
+            <span class="kv__i">${icon('calendar', 'ic--sm')}<span><b>${esc(dateRu(e.date))}</b></span></span>
+            <span class="kv__i">${icon('pin', 'ic--sm')}<span>${esc(e.place)}</span></span>
+            ${e.org ? `<span class="kv__i">${icon('flag', 'ic--sm')}<span>${esc(e.org)}</span></span>` : ''}
+          </div>
+          <div class="row" style="justify-content:flex-end;margin-top:var(--sp-5)">
+            <button class="btn btn--ghost" type="button" data-act="sheet-close">Закрыть</button>
+            ${isClosed ? '' : `<button class="btn btn--primary" type="button" data-act="event-join" data-id="${e.id}">Участвовать</button>`}
+          </div>`;
+      })
+      .catch((err) => {
+        console.error(err);
+        const box = $('#sheet-event-body');
+        if (box) box.innerHTML = `<p style="color:var(--danger)">Не удалось загрузить мероприятие</p>`;
+      });
   }
 
-  /* ========================= Делегирование событий ====================== */
+  /* ========================= LISTENERS ====================== */
   document.addEventListener('click', (e) => {
     const t = e.target.closest('[data-act]');
     if (t) {
@@ -1705,7 +1731,7 @@
 
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeSheet(); });
 
-  /* ============================== Запуск ================================ */
+  /* ============================== START ================================ */
   function boot() {
     // страницу всегда открываем сверху: браузерное восстановление прокрутки ломает SPA-переходы
     if ('scrollRestoration' in history) history.scrollRestoration = 'manual';

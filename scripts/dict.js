@@ -52,10 +52,6 @@
 
   window.BASTAU = {
     VERSION: 'bastau.v1',
-    CATEGORIES, STAGES, SKILLS, SKILLS_RU, ROLES, CITIES, FORMATS, LANGS, EVENT_TYPES, REPORT_REASONS,
-    seed: () => JSON.parse(JSON.stringify({
-      users, projects, events, mentors, applications,
-      notifications: [], reports: [], session: null,
-    })),
+    CATEGORIES, STAGES, SKILLS, SKILLS_RU, ROLES, CITIES, FORMATS, LANGS, EVENT_TYPES, REPORT_REASONS
   };
 })();
