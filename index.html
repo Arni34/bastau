@@ -3,35 +3,41 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+
+  <link rel="icon" href="assets/logo.svg" type="image/svg+xml" />
+
   <title>BASTAU — экосистема студенческих проектов</title>
   <meta name="description" content="BASTAU — платформа для школьников и студентов: придумай идею, оформи проект, собери команду и доведи до результата. Проекты, мероприятия, менторы, портфолио." />
   <meta name="theme-color" content="#FFFFFF" />
+
   <meta property="og:title" content="BASTAU — Student Project Ecosystem" />
   <meta property="og:description" content="IDEA → PROJECT → TEAM → ACTION → RESULT. Создавай проекты, находи команду и возможности." />
   <meta property="og:image" content="assets/logo-banner.jpg" />
-  <link rel="icon" href="assets/logo.svg" type="image/svg+xml" />
+
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&display=swap" />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&display=swap" media="print" onload="this.media='all'" />
   <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&display=swap" /></noscript>
+
   <link rel="preload" as="image" href="assets/logo-full.png" />
   <link rel="preload" as="script" href="vendor/gsap.min.js" />
+
   <link rel="stylesheet" href="styles.css" />
+
   <script>
-    // Вступительную заставку показываем один раз за сессию и только если пользователь не просил «меньше движения»
     (function (d) {
       var seen = false;
       try { seen = !!sessionStorage.getItem('bastau-visited'); } catch (e) {}
       if (!seen && !matchMedia('(prefers-reduced-motion: reduce)').matches) d.classList.add('has-intro');
-      setTimeout(function () { d.classList.remove('has-intro'); }, 5000);   // страховка, если GSAP не загрузился
+      setTimeout(function () { d.classList.remove('has-intro'); }, 5000);
     })(document.documentElement);
   </script>
 </head>
 <body>
   <a class="skip" href="#main">Перейти к содержанию</a>
 
-  <!-- ─────── Фирменный градиент: небо сверху-справа, тёплый свет снизу-слева ─────── -->
+  <!-- Gradient -->
   <div class="aurora" aria-hidden="true">
     <span class="blob blob--sky"></span>
     <span class="blob blob--azure"></span>
@@ -44,7 +50,7 @@
     <span class="star star--5"><svg viewBox="0 0 100 100" aria-hidden="true"><path d="M50 0c4.6 34.6 14.8 45.4 50 50-35.2 4.6-45.4 15.4-50 50-4.6-34.6-14.8-45.4-50-50C35.2 45.4 45.4 34.6 50 0Z"/></svg></span>
   </div>
 
-  <!-- ─────────── SVG-спрайт иконок (Lucide-style, stroke 1.75) ─────────── -->
+  <!-- SVG Icons -->
   <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
     <defs>
       <g id="i-search"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></g>
@@ -81,7 +87,7 @@
     </defs>
   </svg>
 
-  <!-- ─────────── Шапка ─────────── -->
+  <!-- Header -->
   <header class="hdr" id="hdr">
     <div class="hdr__bar">
     <div class="hdr__in">
@@ -117,10 +123,10 @@
     </div>
   </header>
 
-  <!-- ─────────── Контент ─────────── -->
+  <!-- Content -->
   <main id="main" class="view" tabindex="-1"></main>
 
-  <!-- ─────────── Подвал ─────────── -->
+  <!-- Footer -->
   <footer class="ftr">
     <div class="ftr__in">
       <div class="ftr__brand">
@@ -147,7 +153,7 @@
     <a href="#/dashboard" data-nav="dashboard"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-user"/></svg><span>Кабинет</span></a>
   </nav>
 
-  <!-- ─────────── Оверлеи ─────────── -->
+  <!-- Overlays -->
   <div class="sheet" id="sheet" hidden>
     <div class="sheet__scrim" data-close></div>
     <div class="sheet__box" role="dialog" aria-modal="true" aria-labelledby="sheet-ttl">
@@ -168,11 +174,14 @@
 
   <noscript><p class="noscript">Для работы BASTAU нужен JavaScript — включите его в настройках браузера.</p></noscript>
 
+  <!-- Scripts -->
   <script src="vendor/gsap.min.js"></script>
   <script src="vendor/ScrollTrigger.min.js"></script>
   <script src="vendor/SplitText.min.js"></script>
-  <script src="data.js"></script>
-  <script src="motion.js"></script>
+
+  <script src="scripts/dict.js"></script>
+  <script src="scripts/motion.js"></script>
+
   <script src="app.js"></script>
 </body>
 </html>

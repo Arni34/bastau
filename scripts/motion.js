@@ -14,7 +14,7 @@
   const finePointer = matchMedia('(hover: hover) and (pointer: fine)').matches;
 
   if (g) g.registerPlugin(...[ST, Split].filter(Boolean));
-  if (ST) ST.config({ ignoreMobileResize: true });   // на мобильных адресная строка меняет высоту окна
+  if (ST) ST.config({ ignoreMobileResize: true });
 
   const EASE_IN = 'expo.out';       // вход
   const EASE_OUT = 'power2.in';     // выход — короче входа
