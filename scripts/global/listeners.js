@@ -47,15 +47,11 @@ document.addEventListener('click', async (e) => {
     if (act === 'portfolio-print') { window.print(); return; }
     if (act === 'event-open') { actEventOpen(id); return; }
     
-    if (act === 'event-join') { closeSheet(); toast('Отметили участие — событие в твоём кабинете', 'ok'); return; }
+    if (act === 'event-join') { closeSheet(); toast('Отметить не смогли :( пока нет функционала', 'ok'); return; }
     
     if (act === 'mentor-ask') {
       if (!me()) { go('#/auth'); return; }
-      toast('Запрос менторства отправлен', 'ok');
-      return;
-    }
-    
-    if (act === 'demo-login') {
+      toast('Запрос менторства пока в разработке', 'ok');
       return;
     }
     

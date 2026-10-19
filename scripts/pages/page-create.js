@@ -1,11 +1,12 @@
 /* BASTAU - Create project page */
 
 import { skillRu, icon, $ } from '../lib/utils.js';
-import { me } from '../lib/session.js'
+import { me } from '../lib/session.js';
 
 import { D } from '../global/globals.js';
 import { toast } from '../global/modals.js';
-import { chipPicker, validate, required, minLen } from '../global/forms.js';
+import { chipPicker, pickerValue, validate, required, minLen } from '../global/forms.js';
+import { go } from '../pages/router.js';
 import { needAuth } from './page-misc.js';
 
 /* Create a project */
@@ -94,16 +95,65 @@ export function renderCreate(root) {
   $('[data-form="create"]', root).addEventListener('submit', async (e) => {
     e.preventDefault();
     const form = e.currentTarget;
+    
     const ok = validate(form, {
       title: required('Введите название проекта'),
       summary: minLen(20, 'Опишите проект хотя бы в 20 символах'),
       problem: minLen(20, 'Опишите проблему подробнее'),
       solution: minLen(20, 'Опишите решение подробнее'),
-      category: required('Выберите категорию'),
-      skills: (v) => (v ? '' : 'Отметьте хотя бы один навык'),
+      category: (v) => (pickerValue(form, 'category').length ? '' : 'Выберите категорию'),
+      skills: (v) => (pickerValue(form, 'skills').length ? '' : 'Отметьте хотя бы один навык'),
     });
-    if (!ok) { toast('Проверьте выделенные поля', 'err'); return; }
 
-    toast('Создание проектов пока настраивается через API', 'info');
+    if (!ok) {
+      toast('Проверьте выделенные поля', 'err');
+      return;
+    }
+
+    const fd = new FormData(form);
+    const submitBtn = form.querySelector('button[type="submit"]');
+
+    const payload = {
+      title: fd.get('title').toString(),
+      summary: fd.get('summary').toString(),
+      problem: fd.get('problem').toString(),
+      solution: fd.get('solution').toString(),
+      goal: (fd.get('goal') || '').toString(),
+      category: pickerValue(form, 'category')[0] || 'Technology',
+      skills: pickerValue(form, 'skills'),
+      stage: fd.get('stage').toString(),
+      teamSize: fd.get('teamSize').toString(),
+      city: fd.get('city').toString(),
+      format: fd.get('format').toString(),
+      lang: fd.get('lang').toString(),
+      link: (fd.get('link') || '').toString(),
+      needTeam: fd.get('needTeam') !== null,
+      owner_id: u.id // <--- ИСПРАВЛЕНО: передаём owner_id
+    };
+
+    if (submitBtn) submitBtn.disabled = true;
+
+    try {
+      const res = await fetch('/api/projects/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        toast(data.error || 'Ошибка публикации проекта', 'err');
+        if (submitBtn) submitBtn.disabled = false;
+        return;
+      }
+
+      toast('Проект успешно опубликован!', 'ok');
+      go('#/projects');
+    } catch (err) {
+      console.error(err);
+      toast('Ошибка соединения с сервером', 'err');
+      if (submitBtn) submitBtn.disabled = false;
+    }
   });
 }
