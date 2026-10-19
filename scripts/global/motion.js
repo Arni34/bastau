@@ -1,8 +1,4 @@
-/* ==========================================================================
-   BASTAU — слой анимаций (GSAP + ScrollTrigger + SplitText)
-   Правила: анимируем только transform/opacity, всё уважает prefers-reduced-motion,
-   анимации страницы живут в своём gsap.context и убиваются при переходе.
-   ========================================================================== */
+/* BASTAU - Animation layer */
 (() => {
   'use strict';
 
@@ -16,14 +12,14 @@
   if (g) g.registerPlugin(...[ST, Split].filter(Boolean));
   if (ST) ST.config({ ignoreMobileResize: true });
 
-  const EASE_IN = 'expo.out';       // вход
-  const EASE_OUT = 'power2.in';     // выход — короче входа
+  const EASE_IN = 'expo.out';
+  const EASE_OUT = 'power2.in';
 
-  let viewCtx = null;               // контекст анимаций текущей страницы
-  let heroTl = null;                // вступление первого экрана (ждёт заставку)
-  const ambient = [];               // бесконечные фоновые твины
+  let viewCtx = null;
+  let heroTl = null;
+  const ambient = [];
 
-  /* ------------------------- Глобальная инициализация ------------------- */
+  /* ------------------------- Global initialization ------------------- */
   function init() {
     const hdr = document.getElementById('hdr');
     const prog = document.getElementById('hdr-prog');
@@ -43,12 +39,11 @@
     blobs();
   }
 
-  /* ---------------- Живой градиент: дрейф пятен и отклик на курсор ------- */
+  /* ---------------- Live gradient: blob drift & cursor follow ------- */
   function blobs() {
     const nodes = g.utils.toArray('.blob');
     if (!nodes.length) return;
 
-    // Звёзды с визитки дышат медленнее пятен и почти незаметно поворачиваются
     g.utils.toArray('.star').forEach((s, i) => {
       ambient.push(g.to(s, {
         yPercent: () => g.utils.random(-8, 8),
@@ -70,7 +65,6 @@
       }));
     });
 
-    // Градиент мягко тянется за курсором — только на десктопе
     if (finePointer) {
       const ax = g.quickTo('.aurora', 'x', { duration: 2.2, ease: 'power3' });
       const ay = g.quickTo('.aurora', 'y', { duration: 2.2, ease: 'power3' });
@@ -79,14 +73,14 @@
         ay((e.clientY / innerHeight - .5) * -50);
       }, { passive: true });
     }
-    // Ниже первого экрана фоновую анимацию останавливаем — она не видна, но греет процессор
+
     if (ST) ST.create({
       start: 0, end: 'max',
       onUpdate: (self) => ambient.forEach((t) => (self.scroll() < innerHeight * 1.2 ? t.resume() : t.pause())),
     });
   }
 
-  /* --------------------------- Вступительная заставка ------------------- */
+  /* --------------------------- Intro animation ------------------- */
   function startIntro() {
     const intro = document.getElementById('intro');
     const playHero = () => { if (heroTl) heroTl.play(); };
@@ -97,7 +91,7 @@
       playHero();
       return;
     }
-    try { sessionStorage.setItem('bastau-visited', '1'); } catch (e) { /* приватный режим */ }
+    try { sessionStorage.setItem('bastau-visited', '1'); } catch (e) { /* private mode */ }
 
     g.timeline()
       .from('.intro__logo', { y: 18, opacity: 0, scale: .96, duration: .7, ease: EASE_IN }, 0)
@@ -109,14 +103,14 @@
       .add(playHero, 1.25);
   }
 
-  /* --------------------------- Смена страницы --------------------------- */
+  /* --------------------------- View transitions --------------------------- */
   function enterView(el) {
-    if (!g || reduced) return;
+    if (!g || reduced || !el) return;
     g.fromTo(el, { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: .45, ease: EASE_IN, clearProps: 'opacity,transform' });
   }
 
   function leaveView(el, done) {
-    if (!g || reduced) { done(); return; }
+    if (!g || reduced || !el) { done(); return; }
     g.to(el, { opacity: 0, y: -8, duration: .22, ease: EASE_OUT, onComplete: done });
   }
 
@@ -126,9 +120,9 @@
     if (ST) ST.getAll().forEach((t) => { if (t.vars && t.vars.id === 'view') t.kill(); });
   }
 
-  /* ------------------ Появление блоков при прокрутке -------------------- */
+  /* ------------------ Scroll reveal elements -------------------- */
   function reveal(scope) {
-    if (!g || !ST || reduced) return;
+    if (!g || !ST || reduced || !scope) return;
     const items = scope.querySelectorAll('[data-reveal]');
     if (items.length) {
       g.set(items, { opacity: 0, y: 34, rotateX: -6, transformPerspective: 1000, transformOrigin: '50% 0%' });
@@ -143,9 +137,9 @@
     ST.refresh();
   }
 
-  /* ---------------- Заголовки разделов: строки из-под маски ------------- */
+  /* ---------------- Headings mask animations ---------------- */
   function headings(scope) {
-    if (!g || !ST || reduced) return;
+    if (!g || !ST || reduced || !scope) return;
     scope.querySelectorAll('.sec-hd h2').forEach((el) => {
       if (Split) {
         const s = Split.create(el, { type: 'lines', mask: 'lines' });
@@ -157,23 +151,24 @@
         g.from(el, { y: 26, opacity: 0, duration: .8, ease: EASE_IN, scrollTrigger: { id: 'view', trigger: el, start: 'top 90%', once: true } });
       }
     });
-    // надзаголовок героя анимируется своей таймлинией — второй твин по тем же элементам гасил его в ноль
+
     scope.querySelectorAll('.eyebrow:not([data-hero-eyebrow])').forEach((el) => g.from(el, {
       y: 12, opacity: 0, duration: .7, ease: EASE_IN,
       scrollTrigger: { id: 'view', trigger: el, start: 'top 94%', once: true },
     }));
   }
 
-  /* ------------------------------- Герой -------------------------------- */
+  /* ------------------------------- Hero section -------------------------------- */
   function hero(scope) {
-    if (!g || reduced) return;
-    // ждём заставку только если она действительно на экране
+    if (!g || reduced || !scope) return;
+    const heroEl = scope.querySelector('.hero') || document.querySelector('.hero');
+    if (!heroEl) return;
+
     const waiting = html.classList.contains('has-intro') && !!document.getElementById('intro');
 
     viewCtx = g.context(() => {
       const tl = g.timeline({ defaults: { ease: EASE_IN }, paused: waiting });
 
-      // Заголовок: слова выезжают из-под маски
       const h1 = scope.querySelector('[data-h1]');
       if (Split && h1) {
         const s = Split.create(h1, { type: 'words', mask: 'words' });
@@ -182,28 +177,39 @@
         tl.from(h1.querySelectorAll('.w'), { opacity: 0, y: 26, duration: .7, stagger: .04 }, .05);
       }
 
-      tl.from('[data-hero-eyebrow]', { y: 14, opacity: 0, duration: .7 }, 0)
-        .from('[data-hero-lead]', { y: 20, opacity: 0, duration: .9 }, .45)
-        .from('[data-hero-cta] > *', { y: 22, opacity: 0, duration: .8, stagger: .08 }, .6)
-        .from('[data-hero-stat]', { y: 18, opacity: 0, duration: .8, stagger: .07 }, .75)
-        .from('[data-hero-card]', { y: 60, opacity: 0, scale: .95, rotationX: 10, transformPerspective: 1200, duration: 1.3 }, .3);
-
+      if (scope.querySelector('[data-hero-eyebrow]')) {
+        tl.from('[data-hero-eyebrow]', { y: 14, opacity: 0, duration: .7 }, 0);
+      }
+      if (scope.querySelector('[data-hero-lead]')) {
+        tl.from('[data-hero-lead]', { y: 20, opacity: 0, duration: .9 }, .45);
+      }
+      if (scope.querySelectorAll('[data-hero-cta] > *').length) {
+        tl.from('[data-hero-cta] > *', { y: 22, opacity: 0, duration: .8, stagger: .08 }, .6);
+      }
+      if (scope.querySelectorAll('[data-hero-stat]').length) {
+        tl.from('[data-hero-stat]', { y: 18, opacity: 0, duration: .8, stagger: .07 }, .75);
+      }
+      if (scope.querySelector('[data-hero-card]')) {
+        tl.from('[data-hero-card]', { y: 60, opacity: 0, scale: .95, rotationX: 10, transformPerspective: 1200, duration: 1.3 }, .3);
+      }
 
       heroTl = tl;
 
-      // Первый экран уходит вверх чуть быстрее страницы
       if (ST) {
-        const st = { id: 'view', trigger: '.hero', start: 'top top', end: 'bottom top', scrub: true };
+        const st = { id: 'view', trigger: heroEl, start: 'top top', end: 'bottom top', scrub: true };
         const copy = scope.querySelector('.hero__in > div:first-child');
         if (copy) g.to(copy, { yPercent: -12, ease: 'none', scrollTrigger: st });
-        g.to('[data-hero-card]', { yPercent: -22, ease: 'none', scrollTrigger: st });
+        if (scope.querySelector('[data-hero-card]')) {
+          g.to('[data-hero-card]', { yPercent: -22, ease: 'none', scrollTrigger: st });
+        }
       }
 
     }, scope);
   }
 
-  /* ----------------- Путь IDEA → PROJECT → … → RESULT ------------------- */
+  /* ----------------- Journey path ------------------- */
   function journey(scope) {
+    if (!scope) return;
     const root = scope.querySelector('[data-journey]');
     if (!root) return;
     const steps = Array.from(root.querySelectorAll('.jstep'));
@@ -230,8 +236,9 @@
     });
   }
 
-  /* ------------------------------ Счётчики ------------------------------ */
+  /* ------------------------------ Counters ------------------------------ */
   function counters(scope) {
+    if (!scope) return;
     const nodes = scope.querySelectorAll('[data-count]');
     if (!nodes.length) return;
     nodes.forEach((n) => {
@@ -248,24 +255,24 @@
     });
   }
 
-  /* ------------------------------- Оверлеи ------------------------------ */
+  /* ------------------------------- Overlays ------------------------------ */
   function openSheet(box, scrim) {
-    if (!g || reduced) return;
-    g.fromTo(scrim, { opacity: 0 }, { opacity: 1, duration: .2 });
+    if (!g || reduced || !box) return;
+    if (scrim) g.fromTo(scrim, { opacity: 0 }, { opacity: 1, duration: .2 });
     g.fromTo(box, { y: 40, opacity: 0, scale: .98 }, { y: 0, opacity: 1, scale: 1, duration: .4, ease: EASE_IN });
   }
   function closeSheet(box, scrim, done) {
-    if (!g || reduced) { done(); return; }
-    g.to(scrim, { opacity: 0, duration: .18 });
-    g.to(box, { y: 24, opacity: 0, duration: .2, ease: EASE_OUT, onComplete: done });
+    if (!g || reduced || !box) { if (typeof done === 'function') done(); return; }
+    if (scrim) g.to(scrim, { opacity: 0, duration: .18 });
+    g.to(box, { y: 24, opacity: 0, duration: .2, ease: EASE_OUT, onComplete: () => { if (typeof done === 'function') done(); } });
   }
   function toastIn(el) {
-    if (!g || reduced) return;
+    if (!g || reduced || !el) return;
     g.from(el, { y: 16, opacity: 0, duration: .34, ease: EASE_IN });
   }
   function toastOut(el, done) {
-    if (!g || reduced) { done(); return; }
-    g.to(el, { y: 10, opacity: 0, duration: .2, ease: EASE_OUT, onComplete: done });
+    if (!g || reduced || !el) { if (typeof done === 'function') done(); return; }
+    g.to(el, { y: 10, opacity: 0, duration: .2, ease: EASE_OUT, onComplete: () => { if (typeof done === 'function') done(); } });
   }
 
   function refresh() { if (ST) ST.refresh(); }

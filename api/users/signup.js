@@ -1,5 +1,6 @@
-import { supabase } from '../../scripts/db.js';
+import { supabase } from '../../scripts/lib/db.js';
 import bcrypt from 'bcryptjs';
+import { randomUUID } from 'crypto';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -16,8 +17,10 @@ export default async function handler(req, res) {
     const salt = await bcrypt.genSalt(10);
     const password_hash = await bcrypt.hash(password, salt);
 
+    const customId = randomUUID();
+
     const newUser = {
-      id: 'u' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+      id: customId,
       username: username.toLowerCase().trim(),
       email: email.toLowerCase().trim(),
       password_hash,
