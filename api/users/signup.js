@@ -51,9 +51,10 @@ export default async function handler(req, res) {
     if (usernameTaken) return fail(res, 409, CONFLICT_MSG.username, 'username');
 
     const password_hash = await bcrypt.hash(password, 10);
+    const userId = randomUUID();
 
     const newUser = {
-      id: randomUUID(),
+      id: userId,
       username,
       email,
       password_hash,
@@ -69,6 +70,7 @@ export default async function handler(req, res) {
       joined: new Date().toISOString().slice(0, 10),
     };
 
+    // Users
     const { data, error } = await supabase.from('users').insert([newUser]).select().single();
 
     if (error) {
@@ -77,6 +79,18 @@ export default async function handler(req, res) {
 
       console.error('Supabase insert error:', error);
       return fail(res, 500, 'Не удалось создать профиль. Попробуйте позже.');
+    }
+
+    // User statuses
+    const { error: statusError } = await supabase.from('user_statuses').insert([{
+      user_id: userId,
+      role: 'user',
+      is_active: true,
+    }]);
+
+    if (statusError) {
+      console.error('Supabase status insert error:', statusError);
+      // Handle statuse save error delete or try again)
     }
 
     const { password_hash: _omit, ...publicUser } = data;

@@ -112,7 +112,7 @@ function showConflict(form, field) {
 }
 
 function resetSignupState() {
-  Object.keys(signupState).forEach((k) => delete signupState[k]); // в том числе пароль
+  Object.keys(signupState).forEach((k) => delete signupState[k]);
 }
 
 function signupStep(step, data) {

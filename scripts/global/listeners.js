@@ -102,7 +102,7 @@ document.addEventListener('click', async (e) => {
       return;
     }
 
-    if (act === 'admin-block') {
+    if (act === 'admin-block') { // CHANGE
       confirmSheet('Изменить статус блокировки?', 'Пользователь потеряет или восстановит доступ.', 'Подтвердить', async () => {
         try {
           const res = await fetch(`/api/admin/users/${id}/block`, { method: 'POST' });
