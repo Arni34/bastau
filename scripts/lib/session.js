@@ -29,7 +29,6 @@ export function setSession(user) {
 export const me = () => currentUser;
 export const isAdmin = () => false; // DEMO - Get from user_statuses
 export const userById = (id) => ({ id, name: 'Пользователь', username: 'user', city: '—', school: '—', grade: '—', skills: [], interests: [], achievements: [], eventsCount: 0, bio: '' });
-export const projectById = (id) => null;
 const myProjects = (id) => [];
 const myTeams = (id) => [];
 const myApps = (id) => [];

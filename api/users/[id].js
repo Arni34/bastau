@@ -8,14 +8,15 @@ export default async function handler(req, res) {
   }
 
   try {
-    // ID (u0000-0001) or username (@ala)
-    const isUsername = !id.startsWith('u');
-    const field = isUsername ? 'username' : 'id';
+    const isUuid = id.includes('-') || id.length > 30;
+    const field = isUuid ? 'id' : 'username';
+
+    const cleanId = !isUuid && id.startsWith('@') ? id.slice(1) : id;
 
     const { data: user, error } = await supabase
       .from('users')
       .select('*')
-      .eq(field, id)
+      .eq(field, cleanId)
       .single();
 
     if (error || !user) {

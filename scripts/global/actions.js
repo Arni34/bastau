@@ -5,67 +5,121 @@ import {
 } from '../lib/utils.js';
 
 import { D } from './globals.js';
-import { me, projectById, notify } from '../lib/session.js';
+import { me, notify } from '../lib/session.js';
 import { openSheet, closeSheet, toast } from './modals.js';
 import { validate, minLen } from './forms.js';
 import { go, route } from '../pages/router.js';
 
-export function actApply(projectId) {
+export async function actApply(projectId) {
   const u = me();
-  if (!u) { go('#/auth?next=' + encodeURIComponent('#/project/' + projectId)); return; }
-  const p = projectById(projectId);
-  openSheet('Заявка в команду · ' + p.title, `
+  if (!u) { go('#/auth'); return; }
+
+  openSheet('Заявка в команду', `
       <form class="form" data-form="apply" novalidate>
+        <div class="field">
+          <label for="ap-role">Желаемая роль в проекте <span class="req" aria-hidden="true">*</span></label>
+          <input class="input" id="ap-role" name="role" placeholder="Например: Frontend-разработчик, UI/UX дизайнер" required />
+          <span class="field__err" data-err="role" role="alert"></span>
+        </div>
         <div class="field">
           <label for="ap-msg">Почему вы хотите присоединиться к проекту? <span class="req" aria-hidden="true">*</span></label>
           <textarea class="textarea" id="ap-msg" name="message" placeholder="Пара предложений: что умеешь и чем поможешь команде" required></textarea>
-          <span class="field__hint">Нужные навыки: ${esc(p.skills.map(skillRu).join(', '))}.</span>
+          <span class="field__hint" id="apply-skills-hint">Загрузка информации...</span>
           <span class="field__err" data-err="message" role="alert"></span>
         </div>
         <div class="row" style="justify-content:flex-end">
           <button class="btn btn--ghost" type="button" data-act="sheet-close">Отмена</button>
-          <button class="btn btn--primary" type="submit">Отправить заявку</button>
+          <button class="btn btn--primary" type="submit" id="btn-submit-apply" disabled>Загрузка...</button>
         </div>
       </form>`, (box) => {
-    $('[data-form="apply"]', box).addEventListener('submit', (e) => {
+
+    const submitBtn = box.querySelector('#btn-submit-apply');
+    const hintEl = box.querySelector('#apply-skills-hint');
+    let hasExistingApplication = false;
+
+    Promise.all([
+      fetch(`/api/applications?project_id=${projectId}&user_id=${u.id}`)
+        .then(res => res.ok ? res.json() : [])
+        .catch(() => []),
+
+      fetch(`/api/projects/${projectId}`)
+        .then(res => res.ok ? res.json() : null)
+        .catch(() => null)
+    ]).then(([apps, p]) => {
+      if (Array.isArray(apps) && apps.length > 0) {
+        hasExistingApplication = true;
+        if (hintEl) {
+          hintEl.textContent = 'Вы уже подали заявку в этот проект';
+          hintEl.style.color = 'var(--err-color, #e53935)';
+        }
+        if (submitBtn) {
+          submitBtn.disabled = true;
+          submitBtn.textContent = 'Заявка уже подана';
+        }
+        return;
+      }
+
+      if (p) {
+        const sheetTitle = box.closest('.sheet')?.querySelector('.sheet__title') || box.closest('.modal')?.querySelector('.modal__title');
+        if (sheetTitle) sheetTitle.textContent = 'Заявка в команду · ' + p.title;
+
+        if (hintEl) {
+          if (p.skills && p.skills.length > 0) {
+            hintEl.textContent = `Нужные навыки: ${p.skills.map(skillRu).join(', ')}`;
+            hintEl.style.color = '';
+          } else {
+            hintEl.textContent = '';
+          }
+        }
+      } else if (hintEl) {
+        hintEl.textContent = '';
+      }
+
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Отправить заявку';
+      }
+    });
+
+    const form = $('[data-form="apply"]', box);
+    if (!form) return;
+
+    form.addEventListener('submit', (e) => {
       e.preventDefault();
-      const form = e.currentTarget;
-      if (!validate(form, { message: minLen(15, 'Напишите хотя бы пару предложений') })) return;
-      db.applications.push({
-        id: uid('a'), projectId, userId: u.id, status: 'pending',
-        message: new FormData(form).get('message').toString().trim(),
-        createdAt: new Date().toISOString().slice(0, 10),
-      });
-      notify(p.ownerId, 'application', `${u.name} подал заявку в проект «${p.title}»`, '#/project/' + p.id);
-      save();
+
+      if (hasExistingApplication) {
+        toast('Вы уже отправили заявку в этот проект', 'error');
+        return;
+      }
+
+      if (!validate(form, {
+        role: minLen(2, 'Укажите желаемую роль'),
+        message: minLen(15, 'Напишите хотя бы пару предложений')
+      })) return;
+
+      const fd = new FormData(form);
+      const roleText = fd.get('role').toString().trim();
+      const messageText = fd.get('message').toString().trim();
+
       closeSheet();
-      toast('Заявка отправлена создателю проекта', 'ok');
-      route(true);
+      toast('Заявка успешно отправлена!', 'ok');
+      if (typeof route === 'function') route(true);
+
+      fetch('/api/applications', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          project_id: projectId,
+          user_id: u.id,
+          role: roleText,
+          message: messageText
+        })
+      }).catch(err => {
+        console.error('Ошибка фоновой отправки заявки:', err);
+        toast('Не удалось отправить заявку на сервер', 'error');
+      });
     });
   });
-}
-
-export function actAccept(appId, role) {
-  const a = db.applications.find((x) => x.id === appId);
-  if (!a) return;
-  const p = projectById(a.projectId);
-  a.status = 'accepted';
-  if (p && !p.members.some((m) => m.userId === a.userId)) p.members.push({ userId: a.userId, role: role || 'Developer' });
-  notify(a.userId, 'accepted', `Заявку приняли: ты в команде «${p ? p.title : 'проекта'}» как ${role || 'Developer'}`, '#/project/' + a.projectId);
-  save();
-  toast('Участник добавлен в команду', 'ok');
-  route(true);
-}
-
-export function actReject(appId) {
-  const a = db.applications.find((x) => x.id === appId);
-  if (!a) return;
-  const p = projectById(a.projectId);
-  a.status = 'rejected';
-  notify(a.userId, 'rejected', `Заявка в «${p ? p.title : 'проект'}» отклонена. Попробуй другие проекты — их много.`, '#/projects');
-  save();
-  toast('Заявка отклонена');
-  route(true);
 }
 
 export function actReport(kind, id) {
@@ -148,6 +202,10 @@ export function actInvite(userId) {
     const box = $('#sheet-invite-body');
     if (box) box.innerHTML = `<p style="color:var(--danger)">Ошибка загрузки данных</p>`;
   });
+}
+
+export function actDeleteProject(id){
+
 }
 
 export function actPortfolio(userId) {

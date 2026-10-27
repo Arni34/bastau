@@ -1,13 +1,13 @@
 /* BASTAU - Global click / change / keydown handlers */
 
 import { $, stageRu } from '../lib/utils.js';
-import { projectById, userById, notify, me, setSession } from '../lib/session.js';
+import { userById, notify, me, setSession } from '../lib/session.js';
 
 import { M } from './globals.js';
 import { closeSheet, confirmSheet, toast, openSheet } from './modals.js';
 import { route, go } from '../pages/router.js';
 import {
-  actApply, actAccept, actReject, actReport, actInvite, actPortfolio, actEventOpen, actAskMentor
+  actApply, actReport, actInvite, actPortfolio, actEventOpen, actAskMentor
 } from './actions.js';
 
 document.addEventListener('click', async (e) => {
@@ -19,11 +19,6 @@ document.addEventListener('click', async (e) => {
     if (act === 'sheet-close') { closeSheet(); return; }
     if (act === 'confirm-ok') { const cb = confirmSheet.cb; closeSheet(); if (cb) cb(); return; }
     if (act === 'apply') { actApply(id); return; }
-    if (act === 'app-accept') {
-      const sel = document.querySelector(`[data-role-for="${id}"]`);
-      actAccept(id, sel ? sel.value : 'Developer'); return;
-    }
-    if (act === 'app-reject') { actReject(id); return; }
     
     if (act === 'member-remove') {
       const pid = t.dataset.project, uidv = t.dataset.user;
