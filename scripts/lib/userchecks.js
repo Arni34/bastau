@@ -1,11 +1,9 @@
-/* Общие проверки пользователя, валидация и встроенный лимитер */
 import { supabase } from './db.js';
 
 export const EMAIL_MAX = 254;
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 export const USERNAME_RE = /^[a-z0-9_]{3,20}$/;
 
-/* Нормализация строк (регистр, обрезка пробелов) */
 const normStr = (v) => (typeof v === 'string' ? v.trim().toLowerCase() : '');
 export const normEmail = normStr;
 export const normUsername = normStr;
@@ -21,9 +19,6 @@ async function exists(column, value) {
 export const emailExists = (email) => exists('email', email);
 export const usernameExists = (username) => exists('username', username);
 
-/**
- * Какое поле нарушило уникальный индекс (Postgres 23505).
- */
 export function conflictField(error) {
   if (!error || error.code !== '23505') return null;
   const text = `${error.message || ''} ${error.details || ''}`.toLowerCase();
@@ -32,8 +27,6 @@ export function conflictField(error) {
   return null;
 }
 
-/* --- Встроенный модуль лимитера (ранее rateLimit.js) --- */
-
 const hits = new Map();
 
 export function clientIp(req) {
@@ -41,7 +34,6 @@ export function clientIp(req) {
   return (typeof fwd === 'string' && fwd.split(',')[0].trim()) || req.headers['x-real-ip'] || req.socket?.remoteAddress || 'unknown';
 }
 
-/** true — лимит превышен. */
 export function rateLimited(key, { limit = 60, windowMs = 60_000 } = {}) {
   const now = Date.now();
   if (hits.size > 5000) {

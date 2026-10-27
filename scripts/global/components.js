@@ -11,6 +11,7 @@ export function avatar(user, size) {
 }
 
 export function projectCard(p) {
+  p.teamSize = p.team_size ?? p.teamSize;
   return `<article class="card" data-reveal>
       <div class="card__top">
         <span class="badge badge--cat cat" data-cat="${esc(p.category)}">${esc(catRu(p.category))}</span>
@@ -53,10 +54,15 @@ export function personCard(u) {
 }
 
 export function eventCard(e) {
+  e.deadline = e.reg_deadline || e.deadline || e.date;
   const left = daysLeft(e.deadline);
-  const dl = left < 0 ? { cls: 'badge', t: 'Регистрация закрыта' }
-    : left <= 7 ? { cls: 'badge badge--warn', t: `До дедлайна ${plural(left, 'день', 'дня', 'дней')}` }
-      : { cls: 'badge badge--ok', t: `Заявки до ${dateRu(e.deadline)}` };
+  
+  const dl = left < 0 
+    ? { cls: 'badge badge--muted', t: 'Дедлайн прошел' }
+    : left <= 7 
+      ? { cls: 'badge badge--warn', t: `До дедлайна ${plural(left, 'день', 'дня', 'дней')}` }
+      : { cls: 'badge badge--ok', t: `Заявки до ${esc(dateRu(e.deadline))}` };
+
   return `<article class="card" data-reveal>
       <div class="card__top">
         <span class="badge badge--stage">${esc(evtRu(e.type))}</span>

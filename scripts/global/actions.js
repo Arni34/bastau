@@ -216,7 +216,7 @@ export function actEventOpen(id) {
 
       const sheetEl = box.closest('.sheet');
       if (sheetEl) {
-        const titleEl = sheetEl.querySelector('.sheet__ttl');
+        const titleEl = sheetEl.querySelector('#sheet-ttl');
         if (titleEl) titleEl.textContent = e.title;
       }
 

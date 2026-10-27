@@ -50,27 +50,6 @@ export async function renderHome(root) {
             <div data-hero-stat><div class="stat__n" data-count="${cities}">0</div><div class="stat__l">городов</div></div>
           </div>
         </div>
-        <div data-hero-card class="hero__show">
-          <div class="card" style="border-radius:var(--r-xl);text-align:left">
-            <div class="card__top">
-              <span class="badge badge--cat cat" data-cat="Environment">Экология</span>
-              <span class="badge badge--stage">Активный</span>
-              <span class="spacer"></span>
-              <span class="badge badge--accent">Ищет команду</span>
-            </div>
-            <h3 class="card__ttl" style="font-size:22px">EcoQala</h3>
-            <p class="card__txt">Раздельный сбор в школах: боксы, карта пунктов приёма и рейтинг классов.</p>
-            <div class="row" style="margin-top:var(--sp-4);justify-content:space-between">
-              <div class="stack">${users.slice(0, 4).map((u) => avatar(u, 'sm')).join('')}</div>
-              <span class="card__meta">${icon('users', 'ic--sm')}3 / 6 в команде</span>
-            </div>
-            <div class="card__ft" style="gap:var(--sp-2)">
-              <span class="chip chip--skill">Маркетинг</span><span class="chip chip--skill">Дизайн</span><span class="chip chip--skill">+1</span>
-              <span class="spacer"></span>
-              <a class="card__go" href="#/project/p000-000-001">Открыть ${icon('arrow', 'ic--sm ic--arrow')}</a>
-            </div>
-          </div>
-        </div>
       </div>
     </section>
 

@@ -8,7 +8,6 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  // Защита от частых запросов (лимитер)
   if (rateLimited(`email-available:${clientIp(req)}`, { limit: 60, windowMs: 60_000 })) {
     res.setHeader('Retry-After', '60');
     return res.status(429).json({ error: 'Слишком много запросов. Попробуйте через минуту.' });
@@ -23,7 +22,6 @@ export default async function handler(req, res) {
 
   try {
     const exists = await emailExists(email);
-    // available: true, если почта СВОБОДНА (то есть exists == false)
     return res.status(200).json({ available: !exists });
   } catch (err) {
     console.error('email-available error:', err);
