@@ -8,7 +8,10 @@ export default async function handler(req, res) {
   try {
     const { q, cat, city, skill, stage, fmt, lang, team } = req.query;
 
-    let query = supabase.from('projects').select('*');
+    let query = supabase
+      .from('projects')
+      .select('*')
+      .or('deleted.is.null,deleted.eq.false');
 
     if (cat) query = query.eq('category', cat);
     if (city) query = query.eq('city', city);

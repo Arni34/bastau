@@ -8,7 +8,6 @@ import { avatar } from '../global/components.js';
 import { toast } from '../global/modals.js';
 import { render404 } from './page-misc.js';
 
-/* Project page */
 export async function renderProject(root, id) {
   root.innerHTML = `<div class="wrap" style="padding:var(--sp-6) 0"><p>Загрузка проекта...</p></div>`;
 
@@ -27,7 +26,7 @@ export async function renderProject(root, id) {
     console.error(err);
   }
 
-  if (!p) return render404(root);
+  if (!p || p.deleted) return render404(root);
 
   p.needTeam = p.need_team ?? p.needTeam;
   p.teamSize = p.team_size ?? p.teamSize;
@@ -37,14 +36,12 @@ export async function renderProject(root, id) {
   p.skills = p.skills || [];
   p.links = p.links || [];
 
-  // Собираем все уникальные ID пользователей, чьи имена нам нужно подгрузить (создатель, участники, авторы заявок)
   const userIdsToFetch = new Set([
     p.ownerId,
     ...p.members.map(m => m.userId || m.user_id),
     ...applications.map(a => a.user_id)
   ]);
 
-  // Загружаем профили всех связанных пользователей параллельно
   const usersMap = {};
   await Promise.all(
     Array.from(userIdsToFetch).filter(Boolean).map(async (userId) => {
@@ -54,9 +51,7 @@ export async function renderProject(root, id) {
           const userData = await res.json();
           usersMap[userId] = userData;
         }
-      } catch (e) {
-        // Если пользователя не нашли, оставляем фоллбек
-      }
+      } catch (e) {}
     })
   );
 
@@ -68,7 +63,6 @@ export async function renderProject(root, id) {
 
   const myApp = u ? applications.find(a => a.user_id === u.id) : null;
 
-  // Фильтрация заявок по статусам
   const pendingApps = applications.filter(a => a.status === 'pending');
   const rejectedApps = applications.filter(a => a.status === 'rejected');
 
@@ -119,7 +113,12 @@ export async function renderProject(root, id) {
 
               <div style="margin-top:var(--sp-5)">
                 ${
-                  mine ? `<span class="badge badge--ok" style="width:100%;justify-content:center;padding:12px">Это твой проект</span>`
+                  mine ? `
+                    <div style="display:flex;flex-direction:column;gap:8px">
+                      <span class="badge badge--ok" style="width:100%;justify-content:center;padding:12px">Это твой проект</span>
+                      <button class="btn btn--ghost btn--full" type="button" data-act="delete-project" style="color:var(--err-color, #e53935)">Удалить проект</button>
+                    </div>
+                  `
                   : inTeam ? `<span class="badge badge--ok" style="width:100%;justify-content:center;padding:12px">Вы участвуете</span>`
                   : myApp?.status === 'accepted' ? `<span class="badge badge--ok" style="width:100%;justify-content:center;padding:12px">Вы участвуете</span>`
                   : myApp?.status === 'rejected' ? `<span class="badge badge--err" style="width:100%;justify-content:center;padding:12px">Вас отклонили</span>`
@@ -129,18 +128,18 @@ export async function renderProject(root, id) {
               </div>
             </div>
 
-            <!-- Блок команды -->
             <div class="card" style="margin-top:var(--sp-4)">
               <h3 style="font-size:16px;margin-bottom:var(--sp-2)">Команда (${p.members.length})</h3>
               ${p.members.length === 0 ? `<p style="color:var(--fg-mut);font-size:14px">Пока никого нет в команде</p>` : ''}
               ${p.members.map((m) => {
                 const memberUserId = m.userId || m.user_id;
-                const memberUser = usersMap[memberUserId] || { name: 'Участник', username: memberUserId.substring(0, 8) };
+                const memberUser = usersMap[memberUserId] || { name: 'Участник', username: memberUserId };
                 const isOwner = memberUserId === p.ownerId;
+                const displayName = memberUser.username ? `@${memberUser.username}` : memberUserId;
                 return `
                   <div class="member" style="display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--border);padding-top:10px;margin-top:10px">
                     <div style="min-width:0">
-                      <div class="member__n">${esc(memberUser.name)} (@${esc(memberUser.username)})</div>
+                      <div class="member__n">${esc(memberUser.name)} (${esc(displayName)})</div>
                       <div class="member__r">Роль: ${esc(m.role || 'Участник')}</div>
                     </div>
                     ${mine && !isOwner ? `<button class="btn btn--sm btn--ghost" data-act="remove-member" data-userid="${memberUserId}" style="color:var(--err-color, #e53935)">Удалить</button>` : ''}
@@ -148,16 +147,16 @@ export async function renderProject(root, id) {
                 `;
               }).join('')}
 
-              <!-- Блок: Входящие заявки (для владельца) -->
               ${mine ? `
                 <h3 style="font-size:16px;margin:var(--sp-4) 0 var(--sp-2)">Входящие заявки (${pendingApps.length})</h3>
                 ${pendingApps.length === 0 ? `<p style="color:var(--fg-mut);font-size:14px">Нет новых заявок</p>` : ''}
                 ${pendingApps.map((app) => {
-                  const appUser = usersMap[app.user_id] || { name: 'Пользователь', username: app.user_id.substring(0, 8) };
+                  const appUser = usersMap[app.user_id] || { name: 'Пользователь', username: app.user_id };
+                  const displayName = appUser.username ? `@${appUser.username}` : app.user_id;
                   return `
                     <div class="member app-card" data-appid="${app.id}" style="flex-direction:column;align-items:stretch;gap:8px;border-top:1px solid var(--border);padding-top:12px;margin-top:12px">
                       <div>
-                        <div class="member__n">Кандидат: ${esc(appUser.name)} (@${esc(appUser.username)})</div>
+                        <div class="member__n">Кандидат: ${esc(appUser.name)} (${esc(displayName)})</div>
                         <div class="member__r" style="margin-top:4px">Роль: <b>${esc(app.role || 'Не указана')}</b></div>
                         <div class="member__r" style="margin-top:2px">Сообщение: "${esc(app.message || 'Без сообщения')}"</div>
                       </div>
@@ -169,15 +168,15 @@ export async function renderProject(root, id) {
                   `;
                 }).join('')}
 
-                <!-- Блок: Отклоненные заявки (для владельца) -->
                 ${rejectedApps.length > 0 ? `
                   <h3 style="font-size:16px;margin:var(--sp-4) 0 var(--sp-2)">Отклоненные заявки (${rejectedApps.length})</h3>
                   ${rejectedApps.map((app) => {
-                    const appUser = usersMap[app.user_id] || { name: 'Пользователь', username: app.user_id.substring(0, 8) };
+                    const appUser = usersMap[app.user_id] || { name: 'Пользователь', username: app.user_id };
+                    const displayName = appUser.username ? `@${appUser.username}` : app.user_id;
                     return `
                       <div class="member" style="flex-direction:column;align-items:stretch;gap:8px;border-top:1px solid var(--border);padding-top:12px;margin-top:12px">
                         <div>
-                          <div class="member__n" style="color:var(--fg-mut)">Кандидат: ${esc(appUser.name)} (@${esc(appUser.username)})</div>
+                          <div class="member__n" style="color:var(--fg-mut)">Кандидат: ${esc(appUser.name)} (${esc(displayName)})</div>
                           <div class="member__r" style="margin-top:4px">Роль: ${esc(app.role || 'Не указана')}</div>
                           <div class="member__r" style="margin-top:2px">Сообщение: "${esc(app.message || 'Без сообщения')}"</div>
                         </div>
@@ -197,9 +196,27 @@ export async function renderProject(root, id) {
 
   if (M && M.reveal) M.reveal(root);
 
-  // Обработчики для владельца проекта
   if (mine) {
-    // Принять заявку (добавление в members и удаление заявки)
+    root.querySelector('[data-act="delete-project"]')?.addEventListener('click', async () => {
+      if (!confirm('Вы уверены, что хотите удалить этот проект?')) return;
+
+      try {
+        const res = await fetch(`/api/projects/${id}`, {
+          method: 'DELETE'
+        });
+
+        if (res.ok) {
+          toast('Проект успешно удален', 'ok');
+          window.location.hash = '#/projects';
+        } else {
+          toast('Не удалось удалить проект', 'error');
+        }
+      } catch (e) {
+        console.error(e);
+        toast('Ошибка сети', 'error');
+      }
+    });
+
     root.querySelectorAll('[data-act="accept-app"]').forEach(btn => {
       btn.addEventListener('click', async () => {
         const appId = btn.getAttribute('data-appid');
@@ -241,7 +258,6 @@ export async function renderProject(root, id) {
       });
     });
 
-    // Отклонить заявку
     root.querySelectorAll('[data-act="reject-app"]').forEach(btn => {
       btn.addEventListener('click', async () => {
         const appId = btn.getAttribute('data-appid');
@@ -275,7 +291,6 @@ export async function renderProject(root, id) {
       });
     });
 
-    // Отозвать решение / удалить заявку (для отклоненных)
     root.querySelectorAll('[data-act="delete-app"]').forEach(btn => {
       btn.addEventListener('click', async () => {
         const appId = btn.getAttribute('data-appid');
@@ -296,7 +311,6 @@ export async function renderProject(root, id) {
       });
     });
 
-    // Удалить участника из команды
     root.querySelectorAll('[data-act="remove-member"]').forEach(btn => {
       btn.addEventListener('click', async () => {
         const userIdToRemove = btn.getAttribute('data-userid');

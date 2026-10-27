@@ -13,9 +13,10 @@ export default async function handler(req, res) {
         .from('projects')
         .select('*')
         .eq('id', id)
-        .single();
+        .neq('deleted', true)
+        .maybeSingle();
 
-      if (error || !project || project.deleted) {
+      if (error || !project) {
         return res.status(404).json({ error: 'Проект не найден' });
       }
 
@@ -42,7 +43,7 @@ export default async function handler(req, res) {
     if (req.method === 'DELETE') {
       const { data: updatedProject, error } = await supabase
         .from('projects')
-        .update({ deleted: true })
+        .update({ deleted: true, deleted_at: new Date().toISOString() })
         .eq('id', id)
         .select()
         .single();
