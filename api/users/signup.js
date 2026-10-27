@@ -1,55 +1,88 @@
 import { supabase } from '../../scripts/lib/db.js';
 import bcrypt from 'bcryptjs';
 import { randomUUID } from 'crypto';
+import {
+  normEmail, normUsername, isValidEmail, USERNAME_RE,
+  emailExists, usernameExists, conflictField,
+} from '../../scripts/lib/userchecks.js';
+
+const MAX_LIST = 30;
+const str = (v) => (typeof v === 'string' ? v.trim() : '');
+const strList = (v) =>
+  Array.isArray(v) ? v.filter((x) => typeof x === 'string').map((x) => x.trim()).filter(Boolean).slice(0, MAX_LIST) : [];
+
+const CONFLICT_MSG = {
+  email: 'Этот email уже зарегистрирован',
+  username: 'Этот username уже занят',
+};
+
+const fail = (res, status, error, field) => res.status(status).json(field ? { error, field } : { error });
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
+    res.setHeader('Allow', 'POST');
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
   try {
-    const { username, email, password, name, school, grade, city, interests, skills, bio } = req.body;
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+
+    const username = normUsername(body.username);
+    const email = normEmail(body.email);
+    const password = typeof body.password === 'string' ? body.password : '';
+    const name = str(body.name);
 
     if (!username || !email || !password || !name) {
-      return res.status(400).json({ error: 'Заполните обязательные поля и пароль' });
+      return fail(res, 400, 'Заполните обязательные поля и пароль');
     }
+    if (!USERNAME_RE.test(username)) {
+      return fail(res, 400, 'Username: только латиница, цифры и _, 3–20 символов', 'username');
+    }
+    if (!isValidEmail(email)) {
+      return fail(res, 400, 'Проверьте формат email', 'email');
+    }
+    if (password.length < 8 || Buffer.byteLength(password) > 72) {
+      return fail(res, 400, 'Пароль: от 8 символов, не длиннее 72 байт', 'password');
+    }
+    if (name.length > 100) return fail(res, 400, 'Слишком длинное имя', 'name');
 
-    const salt = await bcrypt.genSalt(10);
-    const password_hash = await bcrypt.hash(password, salt);
+    const [emailTaken, usernameTaken] = await Promise.all([emailExists(email), usernameExists(username)]);
+    if (emailTaken) return fail(res, 409, CONFLICT_MSG.email, 'email');
+    if (usernameTaken) return fail(res, 409, CONFLICT_MSG.username, 'username');
 
-    const customId = randomUUID();
+    const password_hash = await bcrypt.hash(password, 10);
 
     const newUser = {
-      id: customId,
-      username: username.toLowerCase().trim(),
-      email: email.toLowerCase().trim(),
+      id: randomUUID(),
+      username,
+      email,
       password_hash,
-      name: name.trim(),
-      city: city || 'Алматы',
-      school: school?.trim() || '',
-      grade: grade?.trim() || '',
-      bio: bio?.trim() || 'Пока без описания.',
-      interests: interests || [],
-      skills: skills || [],
+      name,
+      city: str(body.city).slice(0, 60) || 'Алматы',
+      school: str(body.school).slice(0, 100),
+      grade: str(body.grade).slice(0, 50),
+      bio: str(body.bio).slice(0, 1000) || 'Пока без описания.',
+      interests: strList(body.interests),
+      skills: strList(body.skills),
       achievements: [],
       events_count: 0,
-      joined: new Date().toISOString().slice(0, 10)
+      joined: new Date().toISOString().slice(0, 10),
     };
 
     const { data, error } = await supabase.from('users').insert([newUser]).select().single();
 
     if (error) {
-      console.error('Supabase error details:', error);
-      return res.status(400).json({ error: error.message || 'Ошибка базы данных' });
+      const field = conflictField(error);
+      if (field) return fail(res, 409, CONFLICT_MSG[field], field);
+
+      console.error('Supabase insert error:', error);
+      return fail(res, 500, 'Не удалось создать профиль. Попробуйте позже.');
     }
 
-    if (data && data.password_hash) {
-      delete data.password_hash;
-    }
-
-    return res.status(200).json(data);
+    const { password_hash: _omit, ...publicUser } = data;
+    return res.status(201).json(publicUser);
   } catch (err) {
-    console.error('Catch block error:', err);
-    return res.status(500).json({ error: err.message || 'Внутренняя ошибка сервера' });
+    console.error('Signup error:', err);
+    return fail(res, 500, 'Внутренняя ошибка сервера');
   }
 }

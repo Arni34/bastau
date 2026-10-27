@@ -84,6 +84,37 @@ export function renderAuth(root, _arg, params) {
 }
 
 const signupState = {};
+
+const CONFLICT_MSG = {
+  email: 'Этот email уже зарегистрирован. Войдите или используйте другой адрес.',
+  username: 'Этот username уже занят.',
+};
+
+const normEmail = (v) => String(v || '').trim().toLowerCase();
+
+async function isEmailFree(email) {
+  try {
+    const res = await fetch(`/api/users/email-available?email=${encodeURIComponent(email)}`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    return typeof data.available === 'boolean' ? data.available : null;
+  } catch (err) {
+    return null;
+  }
+}
+
+function showConflict(form, field) {
+  const msg = CONFLICT_MSG[field];
+  fieldError(form, field, msg);
+  const input = form.querySelector(`[name="${field}"]`);
+  if (input) input.focus();
+  toast(msg, 'err');
+}
+
+function resetSignupState() {
+  Object.keys(signupState).forEach((k) => delete signupState[k]); // в том числе пароль
+}
+
 function signupStep(step, data) {
   const bar = `<div class="steps" role="group" aria-label="Шаг ${step} из 3">
       ${[1, 2, 3].map((i) => `<span class="steps__i ${i < step ? 'is-done' : i === step ? 'is-on' : ''}"></span>`).join('')}
@@ -154,11 +185,25 @@ function bindSignup(body, next) {
         password: minLen(8, 'Минимум 8 символов'),
       });
       if (!ok) return;
-      Object.assign(signupState, { 
-        name: fd.get('name').toString().trim(), 
-        username: fd.get('username').toString().trim(), 
-        email: fd.get('email').toString().trim(),
-        password: fd.get('password').toString()
+
+      const email = normEmail(fd.get('email'));
+
+      // Пока идёт проверка, кнопка заблокирована — защита от двойного клика.
+      const nextBtn = form.querySelector('button[type="submit"]');
+      if (nextBtn) nextBtn.disabled = true;
+      const free = await isEmailFree(email);
+      if (nextBtn) nextBtn.disabled = false;
+
+      if (free === false) {
+        showConflict(form, 'email');
+        return;
+      }
+
+      Object.assign(signupState, {
+        name: fd.get('name').toString().trim(),
+        username: fd.get('username').toString().trim(),
+        email,
+        password: fd.get('password').toString(),
       });
       body.innerHTML = signupStep(2, signupState);
     } else if (step === 2) {
@@ -174,6 +219,7 @@ function bindSignup(body, next) {
 
       const payload = {
         ...signupState,
+        email: normEmail(signupState.email),
         interests: pickerValue(form, 'interests'),
         skills: pickerValue(form, 'skills'),
         bio: (fd.get('bio') || '').toString().trim(),
@@ -189,7 +235,15 @@ function bindSignup(body, next) {
           body: JSON.stringify(payload)
         });
 
-        const data = await res.json();
+        const data = await res.json().catch(() => ({}));
+
+        // Итоговая защита: пока человек заполнял шаги, адрес могли занять —
+        // либо проверку на шаге 1 обошли. Возвращаем на шаг 1 к нужному полю.
+        if (res.status === 409 && CONFLICT_MSG[data.field]) {
+          body.innerHTML = signupStep(1, signupState);
+          showConflict($('[data-form="signup"]', body), data.field);
+          return;
+        }
 
         if (!res.ok) {
           toast(data.error || 'Ошибка регистрации', 'err');
@@ -197,6 +251,7 @@ function bindSignup(body, next) {
           return;
         }
 
+        resetSignupState();
         setSession(data);
         toast('Профиль успешно создан!', 'ok');
         go(next);
