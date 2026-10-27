@@ -3,7 +3,7 @@
 import {
   esc, initials, catRu, stageRu, skillRu, icon, daysLeft, plural, dateRu, evtRu, fmtRu
 } from '../lib/utils.js';
-import { isAdmin } from '../lib/session.js';
+import { isAdmin, me } from '../lib/session.js';
 
 export function avatar(user, size) {
   const cls = size ? ` avatar--${size}` : '';
@@ -81,6 +81,22 @@ export function eventCard(e) {
 }
 
 export function mentorCard(m) {
+  const u = me();
+  const email = encodeURIComponent(m.contact_email || '');
+
+  const userName = u?.name || u?.username || 'None';
+  const userGrade = u?.grade || u?.course || 'None';
+  const username = u?.username || '';
+
+  const websiteRef = window.location.origin;
+  const profileLink = username ? `${websiteRef}/#/profile/${username}` : `${websiteRef}/#/profile`;
+
+  const subject = encodeURIComponent('Запрос на наставничество с BASTAU');
+  const body = encodeURIComponent(
+    `Здравствуйте! Меня зовут ${userName}, и я учусь в/на "${userGrade}" классе/курсе. Я бы хотел(а) запросить у вас наставничество. Вы можете посмотреть мой профиль по ссылке: ${profileLink}`
+  );
+  const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${email}&su=${subject}&body=${body}`;
+
   return `<article class="card" data-reveal>
       <div class="row" style="flex-wrap:nowrap">
         ${avatar(m)}
@@ -96,7 +112,8 @@ export function mentorCard(m) {
       <div class="card__meta-row">
         <span class="card__meta">${icon('award', 'ic--sm')}${esc(m.exp)}</span>
       </div>
-      <button class="btn btn--ghost btn--full card__act" type="button" data-act="mentor-ask" data-id="${m.id}">Запросить наставничество</button>
+      <!-- Открываем почту прямо в новой вкладке без белых экранов -->
+      <a class="btn btn--ghost btn--full card__act" href="${gmailUrl}" target="_blank" rel="noopener noreferrer">Запросить наставничество</a>
     </article>`;
 }
 

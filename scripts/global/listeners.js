@@ -7,7 +7,7 @@ import { M } from './globals.js';
 import { closeSheet, confirmSheet, toast, openSheet } from './modals.js';
 import { route, go } from '../pages/router.js';
 import {
-  actApply, actAccept, actReject, actReport, actInvite, actPortfolio, actEventOpen
+  actApply, actAccept, actReject, actReport, actInvite, actPortfolio, actEventOpen, actAskMentor
 } from './actions.js';
 
 document.addEventListener('click', async (e) => {
@@ -43,17 +43,14 @@ document.addEventListener('click', async (e) => {
 
     if (act === 'report') { actReport(t.dataset.kind, id); return; }
     if (act === 'invite') { actInvite(id); return; }
+
     if (act === 'portfolio') { actPortfolio(id); return; }
     if (act === 'portfolio-print') { window.print(); return; }
+
     if (act === 'event-open') { actEventOpen(id); return; }
+    if (act === 'event-join') { closeSheet(); toast('Отметить не смогли :( пока нет функционала', 'ok'); return; } // DEMO
     
-    if (act === 'event-join') { closeSheet(); toast('Отметить не смогли :( пока нет функционала', 'ok'); return; }
-    
-    if (act === 'mentor-ask') {
-      if (!me()) { go('#/auth'); return; }
-      toast('Запрос менторства пока в разработке', 'ok');
-      return;
-    }
+    if (act === 'mentor-ask') { actAskMentor(id); return; }
     
     if (act === 'logout') { 
       setSession(null);
@@ -62,18 +59,6 @@ document.addEventListener('click', async (e) => {
       go('#/'); 
       route(true);
       return; 
-    }
-
-    if (act === 'db-reset') {
-      confirmSheet('Сбросить данные?', 'Все локальные данные будут очищены.', 'Сбросить', () => {
-        localStorage.clear();
-        sessionStorage.clear();
-        setSession(null);
-        toast('Данные сброшены', 'ok'); 
-        go('#/'); 
-        route(true);
-      });
-      return;
     }
 
     if (act === 'pw-toggle') {

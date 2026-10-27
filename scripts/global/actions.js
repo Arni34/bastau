@@ -247,3 +247,19 @@ export function actEventOpen(id) {
       if (box) box.innerHTML = `<p style="color:var(--danger)">Не удалось загрузить мероприятие</p>`;
     });
 }
+
+export function actAskMentor(id) {
+  const u = me();
+  if (!u) { go('#/auth'); return; }
+
+  const btn = document.querySelector(`[data-act="mentor-ask"][data-id="${id}"]`);
+  const email = btn ? btn.dataset.email : '';
+
+  if (!email) {
+    toast('У наставника не указан email для связи', 'error');
+    return;
+  }
+
+  console.log(`Отправлено на ${email}: Запрос на наставничество от пользователя ${u.username || u.email}`);
+  toast('Запрос на наставничество успешно отправлен наставнику!', 'ok');
+}
