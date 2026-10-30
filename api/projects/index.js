@@ -6,12 +6,17 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { q, cat, city, skill, stage, fmt, lang, team } = req.query;
+    const { q, cat, city, skill, stage, fmt, lang, team, deleted } = req.query;
 
-    let query = supabase
-      .from('projects')
-      .select('*')
-      .or('deleted.is.null,deleted.eq.false');
+    let query = supabase.from('projects').select('*');
+
+    if (deleted === 'true') {
+      query = query.eq('deleted', true);
+    } 
+    else if (deleted === 'all') {
+    } else {
+      query = query.or('deleted.is.null,deleted.eq.false');
+    }
 
     if (cat) query = query.eq('category', cat);
     if (city) query = query.eq('city', city);

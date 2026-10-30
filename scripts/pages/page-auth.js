@@ -8,7 +8,6 @@ import { toast } from '../global/modals.js';
 import { validate, required, minLen, fieldError, chipPicker, pickerValue } from '../global/forms.js';
 import { go } from '../pages/router.js';
 
-/* Auth */
 export function renderAuth(root, _arg, params) {
   const mode = params.get('mode') === 'signup' ? 'signup' : 'login';
   const next = params.get('next') || '#/dashboard';
@@ -67,6 +66,17 @@ export function renderAuth(root, _arg, params) {
         if (user.blocked) {
           toast('Аккаунт заблокирован администрацией', 'err');
           return;
+        }
+
+        try {
+          const resStatus = await fetch(`/api/user-statuses?user_id=${user.id}`);
+          if (resStatus.ok) {
+            const statusData = await resStatus.json();
+            user.role = statusData.role || 'user';
+            user.is_active = statusData.is_active ?? true;
+          }
+        } catch (e) {
+          user.role = 'user';
         }
 
         setSession(user);
@@ -188,7 +198,6 @@ function bindSignup(body, next) {
 
       const email = normEmail(fd.get('email'));
 
-      // Пока идёт проверка, кнопка заблокирована — защита от двойного клика.
       const nextBtn = form.querySelector('button[type="submit"]');
       if (nextBtn) nextBtn.disabled = true;
       const free = await isEmailFree(email);
@@ -237,8 +246,6 @@ function bindSignup(body, next) {
 
         const data = await res.json().catch(() => ({}));
 
-        // Итоговая защита: пока человек заполнял шаги, адрес могли занять —
-        // либо проверку на шаге 1 обошли. Возвращаем на шаг 1 к нужному полю.
         if (res.status === 409 && CONFLICT_MSG[data.field]) {
           body.innerHTML = signupStep(1, signupState);
           showConflict($('[data-form="signup"]', body), data.field);
@@ -250,6 +257,8 @@ function bindSignup(body, next) {
           if (submitBtn) submitBtn.disabled = false;
           return;
         }
+
+        data.role = 'user';
 
         resetSignupState();
         setSession(data);
