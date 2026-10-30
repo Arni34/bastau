@@ -1,10 +1,11 @@
-/* BASTAU - Admin panel page */
+// BASTAU - Admin panel page //
 
 import { icon, $, esc, dateRu } from '../lib/utils.js';
 import { D } from '../global/globals.js';
 import { toast } from '../global/modals.js';
 import { validate, required } from '../global/forms.js';
-import { emptyState } from '../global/components.js';
+
+/* === PAGE === */
 
 export async function renderAdmin(root, _arg, params) {
   root.innerHTML = `
@@ -44,7 +45,10 @@ export async function renderAdmin(root, _arg, params) {
   loadEventsSection(content);
 }
 
+/* === SECTIONS === */
+
 async function loadEventsSection(container) {
+  /* --- Events section --- */
   let events = [];
   try {
     const res = await fetch('/api/events');
@@ -94,6 +98,7 @@ async function loadEventsSection(container) {
 }
 
 async function loadMentorsSection(container) {
+  /* --- Mentors section --- */
   let mentors = [];
   try {
     const res = await fetch('/api/mentors');
@@ -145,6 +150,7 @@ async function loadMentorsSection(container) {
 }
 
 async function loadProjectsSection(container) {
+  /* --- Projects section --- */
   let allProjects = [];
 
   try {
@@ -325,6 +331,7 @@ async function loadProjectsSection(container) {
 }
 
 async function loadUsersSection(container) {
+  /* --- Users section --- */
   let users = [];
   try {
     const res = await fetch('/api/users');
@@ -395,6 +402,7 @@ async function loadUsersSection(container) {
         <div>
           <b>${esc(u.name)}</b> (@${esc(u.username)})
           <div style="font-size:13px;color:var(--fg-mut)">${esc(u.email || 'без email')} · Город: ${esc(u.city || '—')}</div>
+          ${!isActive && u.deactivated_reason ? `<div style="font-size:12px;color:var(--err-color, #e53935);margin-top:4px">Причина: ${esc(u.deactivated_reason)}</div>` : ''}
         </div>
         <button class="btn btn--sm ${isActive ? 'btn--ghost' : 'btn--primary'}" data-act="toggle-active" data-id="${u.id}" data-active="${isActive}" style="${isActive ? 'color:var(--err-color, #e53935)' : ''}">
           ${isActive ? 'Деактивировать' : 'Активировать'}
@@ -409,24 +417,105 @@ async function loadUsersSection(container) {
         const currentActive = btn.dataset.active === 'true';
         const newActive = !currentActive;
 
-        try {
-          const res = await fetch('/api/user-statuses', {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ user_id: userId, is_active: newActive })
-          });
+        if (newActive === true) {
+          if (!confirm('Активировать аккаунт пользователя снова?')) return;
+          updateUserStatus(userId, true, null, '');
+          return;
+        }
 
-          if (res.ok) {
-            toast(newActive ? 'Аккаунт активирован' : 'Аккаунт деактивирован', 'ok');
-            const targetUser = users.find(x => x.id === userId);
-            if (targetUser) targetUser.is_active = newActive;
-            renderSub();
-          } else toast('Не удалось изменить статус', 'err');
-        } catch (e) { toast('Ошибка сети', 'err'); }
+        // Кастомное модальное окно для ввода причины деактивации
+        let modal = document.getElementById('deactivate-modal');
+        if (!modal) {
+          modal = document.createElement('div');
+          modal.id = 'deactivate-modal';
+          modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;padding:16px;';
+          modal.innerHTML = `
+            <div style="background:var(--bg, #fff);padding:24px;border-radius:12px;width:100%;max-width:420px;box-shadow:0 10px 25px rgba(0,0,0,0.1);display:flex;flex-direction:column;gap:16px;">
+              <h3 style="margin:0;font-size:18px;color:var(--fg, #111);">Причина деактивации</h3>
+              <p style="margin:0;font-size:13px;color:var(--fg-mut, #666);">Пожалуйста, укажите причину блокировки аккаунта. Это поле обязательно.</p>
+              <div class="field" style="margin:0;">
+                <textarea id="deactivation-reason-input" class="textarea" placeholder="Например: Нарушение правил платформы..." style="min-height:90px;width:100%;resize:vertical;"></textarea>
+                <span id="deactivation-error" style="color:var(--err-color, #e53935);font-size:12px;display:none;margin-top:4px;">Укажите причину деактивации</span>
+              </div>
+              <div style="display:flex;justify-content:flex-end;gap:8px;">
+                <button type="button" id="deactivate-cancel" class="btn btn--sm btn--ghost">Отмена</button>
+                <button type="button" id="deactivate-submit" class="btn btn--sm btn--primary" style="background:var(--err-color, #e53935);color:#fff;">Заблокировать</button>
+              </div>
+            </div>`;
+          document.body.appendChild(modal);
+        } else {
+          modal.style.display = 'flex';
+        }
+
+        const textarea = document.getElementById('deactivation-reason-input');
+        const errSpan = document.getElementById('deactivation-error');
+        textarea.value = '';
+        errSpan.style.display = 'none';
+        textarea.focus();
+
+        const closeModal = () => {
+          modal.style.display = 'none';
+          cleanup();
+        };
+
+        const submitHandler = () => {
+          const reason = textarea.value.trim();
+          if (!reason) {
+            errSpan.style.display = 'block';
+            textarea.focus();
+            return;
+          }
+          closeModal();
+          updateUserStatus(userId, false, new Date().toISOString(), reason);
+        };
+
+        const cancelBtn = document.getElementById('deactivate-cancel');
+        const submitBtn = document.getElementById('deactivate-submit');
+        const backdropClick = (e) => { if (e.target === modal) closeModal(); };
+
+        const cleanup = () => {
+          cancelBtn.replaceWith(cancelBtn.cloneNode(true));
+          submitBtn.replaceWith(submitBtn.cloneNode(true));
+          modal.replaceWith(modal.cloneNode(true));
+        };
+
+        document.getElementById('deactivate-cancel').addEventListener('click', closeModal);
+        document.getElementById('deactivate-submit').addEventListener('click', submitHandler);
+        modal.addEventListener('click', backdropClick);
       });
     });
   }
+
+  async function updateUserStatus(userId, newActive, deactivatedAt, deactivatedReason) {
+    try {
+      const payload = {
+        user_id: userId,
+        is_active: newActive,
+        deactivated_at: deactivatedAt,
+        deactivated_reason: deactivatedReason
+      };
+
+      const res = await fetch('/api/user-statuses', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (res.ok) {
+        toast(newActive ? 'Аккаунт активирован' : 'Аккаунт деактивирован', 'ok');
+        const targetUser = users.find(x => x.id === userId);
+        if (targetUser) {
+          targetUser.is_active = newActive;
+          targetUser.deactivated_at = payload.deactivated_at;
+          targetUser.deactivated_reason = payload.deactivated_reason;
+        }
+        renderSub();
+      } else toast('Не удалось изменить статус', 'err');
+    } catch (e) { toast('Ошибка сети', 'err'); }
+  }
 }
+
+/* === FORMS === */
 
 function eventForm() {
   return `<form class="form" data-form="event" novalidate style="gap:var(--sp-4)">
@@ -470,6 +559,8 @@ function mentorForm() {
       <div class="row" style="justify-content:flex-end"><button class="btn btn--primary" type="submit" data-submit-btn>${icon('plus')}Добавить ментора</button></div>
     </form>`;
 }
+
+/* === FORM BINDERS === */
 
 function bindEventForm(root, onSuccess) {
   const form = $('[data-form="event"]', root);
@@ -543,14 +634,8 @@ function bindMentorForm(root, onSuccess) {
   });
 
   form.addEventListener('click', (e) => {
-    if (e.target.closest('[data-act="add-skill"]')) {
-      skillsList.push('');
-      renderLists();
-    }
-    if (e.target.closest('[data-act="add-ach"]')) {
-      achList.push('');
-      renderLists();
-    }
+    e.target.closest('[data-act="add-skill"]') && (skillsList.push(''), renderLists());
+    e.target.closest('[data-act="add-ach"]') && (achList.push(''), renderLists());
     if (e.target.dataset.delSkill !== undefined) {
       skillsList.splice(Number(e.target.dataset.delSkill), 1);
       renderLists();
