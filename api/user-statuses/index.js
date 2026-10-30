@@ -2,34 +2,35 @@ import { supabase } from '../../scripts/lib/db.js';
 
 export default async function handler(req, res) {
   if (req.method === 'GET') {
-    // Get request
-    const userId = req.query.user_id;
-
-    // Check User ID
-    if (!userId) {
-      return res.status(400).json({ error: 'Missing user_id parameter' });
-    }
-
     try {
-      // Supabase request
-      const { data, error } = await supabase
-        .from('user_statuses')
-        .select('role, is_active')
-        .eq('user_id', userId)
-        .maybeSingle();
+      const userId = req.query.user_id;
 
-      // Process error
-      if (error) throw error;
+      // GET By user ID
+      if (userId) {
+        const { data, error } = await supabase
+          .from('user_statuses')
+          .select('role, is_active, deactivated_at, deactivated_reason')
+          .eq('user_id', userId)
+          .maybeSingle();
 
-      // Default val (if data == null)
-      if (!data) {
-        return res.status(200).json({ role: 'user', is_active: true });
+        if (error) throw error;
+
+        if (!data) {
+          return res.status(200).json({ role: 'user', is_active: true, deactivated_at: null, deactivated_reason: '' });
+        }
+
+        return res.status(200).json(data);
       }
 
-      // Get responce
-      return res.status(200).json(data);
+      // GET All statuses
+      const { data, error } = await supabase
+        .from('user_statuses')
+        .select('*');
+
+      if (error) throw error;
+
+      return res.status(200).json(data || []);
     }
-    // Catch server errors
     catch (err) {
       console.error(err);
       return res.status(500).json({ error: 'Internal server error' });

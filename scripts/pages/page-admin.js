@@ -1,6 +1,7 @@
 // BASTAU - Admin panel page //
 
 import { icon, $, esc, dateRu } from '../lib/utils.js';
+import { me } from '../lib/session.js';
 import { D } from '../global/globals.js';
 import { toast } from '../global/modals.js';
 import { validate, required } from '../global/forms.js';
@@ -333,9 +334,39 @@ async function loadProjectsSection(container) {
 async function loadUsersSection(container) {
   /* --- Users section --- */
   let users = [];
+  const currentUser = me();
+
   try {
-    const res = await fetch('/api/users');
-    if (res.ok) users = await res.json();
+    // Параллельно запрашиваем пользователей и их статусы/роли
+    const [resUsers, resStatuses] = await Promise.all([
+      fetch('/api/users'),
+      fetch('/api/user-statuses').catch(() => ({ ok: false }))
+    ]);
+
+    if (resUsers.ok) {
+      const rawUsers = await resUsers.json();
+      let statusesMap = new Map();
+
+      if (resStatuses.ok) {
+        const statuses = await resStatuses.json();
+        // Создаем мапу для быстрого поиска статуса по user_id
+        if (Array.isArray(statuses)) {
+          statuses.forEach(s => statusesMap.set(String(s.user_id || s.id), s));
+        }
+      }
+
+      // Объединяем данные пользователя с его статусом и ролью
+      users = rawUsers.map(u => {
+        const status = statusesMap.get(String(u.id)) || {};
+        return {
+          ...u,
+          role: u.role || status.role || 'user',
+          is_active: u.is_active !== undefined ? u.is_active : (status.is_active ?? true),
+          deactivated_at: u.deactivated_at || status.deactivated_at || null,
+          deactivated_reason: u.deactivated_reason || status.deactivated_reason || ''
+        };
+      });
+    }
   } catch (e) {
     console.error(e);
   }
@@ -364,14 +395,45 @@ async function loadUsersSection(container) {
       btnBlk.className = 'btn btn--sm btn--primary';
     }
 
-    subcontent.innerHTML = `
-      <div class="field" style="margin-bottom:var(--sp-4)">
-        <input class="input" id="user-search" placeholder="Поиск пользователей по имени, email или username..." />
-      </div>
-      <div class="prose" id="users-list">
-        ${filteredUsers.length === 0 ? '<p style="color:var(--fg-mut)">Список пуст</p>' : ''}
-        ${filteredUsers.map(renderUserCard).join('')}
-      </div>`;
+    let contentHtml = '';
+
+    if (currentSub === 'active') {
+      const admins = filteredUsers.filter(u => u.role === 'admin');
+      const moderators = filteredUsers.filter(u => u.role === 'moderator');
+      const regularUsers = filteredUsers.filter(u => u.role !== 'moderator' && u.role !== 'admin');
+
+      contentHtml = `
+        <div class="field" style="margin-bottom:var(--sp-4)">
+          <input class="input" id="user-search" placeholder="Поиск пользователей по имени, email или username..." />
+        </div>
+        <div id="users-list">
+          <h3 style="font-size:16px;margin-bottom:var(--sp-3);color:var(--fg-mut)">Администраторы (${admins.length})</h3>
+          <div class="prose" style="margin-bottom:var(--sp-6)">
+            ${admins.length === 0 ? '<p style="color:var(--fg-mut);font-size:14px">Нет администраторов</p>' : admins.map(renderUserCard).join('')}
+          </div>
+
+          <h3 style="font-size:16px;margin-bottom:var(--sp-3);color:var(--fg-mut)">Модераторы (${moderators.length})</h3>
+          <div class="prose" style="margin-bottom:var(--sp-6)">
+            ${moderators.length === 0 ? '<p style="color:var(--fg-mut);font-size:14px">Нет модераторов</p>' : moderators.map(renderUserCard).join('')}
+          </div>
+
+          <h3 style="font-size:16px;margin-bottom:var(--sp-3);color:var(--fg-mut)">Пользователи (${regularUsers.length})</h3>
+          <div class="prose">
+            ${regularUsers.length === 0 ? '<p style="color:var(--fg-mut);font-size:14px">Нет пользователей</p>' : regularUsers.map(renderUserCard).join('')}
+          </div>
+        </div>`;
+    } else {
+      contentHtml = `
+        <div class="field" style="margin-bottom:var(--sp-4)">
+          <input class="input" id="user-search" placeholder="Поиск пользователей по имени, email или username..." />
+        </div>
+        <div class="prose" id="users-list">
+          ${filteredUsers.length === 0 ? '<p style="color:var(--fg-mut)">Список пуст</p>' : ''}
+          ${filteredUsers.map(renderUserCard).join('')}
+        </div>`;
+    }
+
+    subcontent.innerHTML = contentHtml;
 
     const searchInput = $('#user-search', subcontent);
     searchInput.addEventListener('input', (e) => {
@@ -381,9 +443,30 @@ async function loadUsersSection(container) {
         (u.username || '').toLowerCase().includes(q) || 
         (u.email || '').toLowerCase().includes(q)
       );
-      $('#users-list', subcontent).innerHTML = searched.length === 0 
-        ? '<p style="color:var(--fg-mut)">Ничего не найдено</p>' 
-        : searched.map(renderUserCard).join('');
+      
+      if (currentSub === 'active') {
+        const admSearch = searched.filter(u => u.role === 'admin');
+        const modSearch = searched.filter(u => u.role === 'moderator');
+        const regSearch = searched.filter(u => u.role !== 'moderator' && u.role !== 'admin');
+        
+        $('#users-list', subcontent).innerHTML = `
+          <h3 style="font-size:16px;margin-bottom:var(--sp-3);color:var(--fg-mut)">Администраторы (${admSearch.length})</h3>
+          <div class="prose" style="margin-bottom:var(--sp-6)">
+            ${admSearch.length === 0 ? '<p style="color:var(--fg-mut);font-size:14px">Ничего не найдено</p>' : admSearch.map(renderUserCard).join('')}
+          </div>
+          <h3 style="font-size:16px;margin-bottom:var(--sp-3);color:var(--fg-mut)">Модераторы (${modSearch.length})</h3>
+          <div class="prose" style="margin-bottom:var(--sp-6)">
+            ${modSearch.length === 0 ? '<p style="color:var(--fg-mut);font-size:14px">Ничего не найдено</p>' : modSearch.map(renderUserCard).join('')}
+          </div>
+          <h3 style="font-size:16px;margin-bottom:var(--sp-3);color:var(--fg-mut)">Пользователи (${regSearch.length})</h3>
+          <div class="prose">
+            ${regSearch.length === 0 ? '<p style="color:var(--fg-mut);font-size:14px">Ничего не найдено</p>' : regSearch.map(renderUserCard).join('')}
+          </div>`;
+      } else {
+        $('#users-list', subcontent).innerHTML = searched.length === 0 
+          ? '<p style="color:var(--fg-mut)">Ничего не найдено</p>' 
+          : searched.map(renderUserCard).join('');
+      }
       bindUserActions();
     });
 
@@ -397,20 +480,75 @@ async function loadUsersSection(container) {
 
   function renderUserCard(u) {
     const isActive = u.is_active !== false;
+    const isAdmin = u.role === 'admin';
+    const isMod = u.role === 'moderator';
+    const isSelf = currentUser && String(currentUser.id) === String(u.id);
+
+    let badgeHtml = '';
+    if (isAdmin) {
+      badgeHtml = '<span class="badge badge--accent" style="font-size:10px;margin-left:6px">Администратор</span>';
+    } else if (isMod) {
+      badgeHtml = '<span class="badge badge--ok" style="font-size:10px;margin-left:6px">Модератор</span>';
+    }
+
+    const selfBadge = isSelf ? '<span class="badge badge--warn" style="font-size:10px;margin-left:4px">Это вы</span>' : '';
+    
+    const cardBg = isSelf 
+      ? 'background: var(--bg-subtle, rgba(59, 130, 246, 0.05)); border: 1px solid var(--accent, #3b82f6);' 
+      : 'background: var(--bg);';
+
     return `
-      <div class="card" style="display:flex;justify-content:space-between;align-items:center;padding:var(--sp-4)">
+      <div class="card" style="display:flex;justify-content:space-between;align-items:center;padding:var(--sp-4);${cardBg}">
         <div>
-          <b>${esc(u.name)}</b> (@${esc(u.username)})
+          <b>${esc(u.name)}</b> (@${esc(u.username)}) ${badgeHtml} ${selfBadge}
           <div style="font-size:13px;color:var(--fg-mut)">${esc(u.email || 'без email')} · Город: ${esc(u.city || '—')}</div>
           ${!isActive && u.deactivated_reason ? `<div style="font-size:12px;color:var(--err-color, #e53935);margin-top:4px">Причина: ${esc(u.deactivated_reason)}</div>` : ''}
         </div>
-        <button class="btn btn--sm ${isActive ? 'btn--ghost' : 'btn--primary'}" data-act="toggle-active" data-id="${u.id}" data-active="${isActive}" style="${isActive ? 'color:var(--err-color, #e53935)' : ''}">
-          ${isActive ? 'Деактивировать' : 'Активировать'}
-        </button>
+        <div style="display:flex;gap:8px;align-items:center;">
+          ${!isSelf && !isAdmin ? `
+            ${isActive ? `
+              <button class="btn btn--sm btn--ghost" data-act="toggle-role" data-id="${u.id}" data-role="${u.role || 'user'}">
+                ${isMod ? 'Отозвать модератора' : 'Сделать модератором'}
+              </button>
+            ` : ''}
+            <button class="btn btn--sm ${isActive ? 'btn--ghost' : 'btn--primary'}" data-act="toggle-active" data-id="${u.id}" data-active="${isActive}" style="${isActive ? 'color:var(--err-color, #e53935)' : ''}">
+              ${isActive ? 'Деактивировать' : 'Активировать'}
+            </button>
+          ` : ''}
+        </div>
       </div>`;
   }
 
   function bindUserActions() {
+    subcontent.querySelectorAll('[data-act="toggle-role"]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const userId = btn.dataset.id;
+        const currentRole = btn.dataset.role;
+        const newRole = currentRole === 'moderator' ? 'user' : 'moderator';
+
+        try {
+          const res = await fetch('/api/user-statuses', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_id: userId, role: newRole })
+          });
+
+          if (res.ok) {
+            toast(newRole === 'moderator' ? 'Назначен модератором' : 'Права модератора отозваны', 'ok');
+            const targetUser = users.find(x => String(x.id) === String(userId));
+            if (targetUser) {
+              targetUser.role = newRole;
+            }
+            renderSub();
+          } else {
+            toast('Не удалось изменить роль', 'err');
+          }
+        } catch (e) {
+          toast('Ошибка сети', 'err');
+        }
+      });
+    });
+
     subcontent.querySelectorAll('[data-act="toggle-active"]').forEach(btn => {
       btn.addEventListener('click', async () => {
         const userId = btn.dataset.id;
@@ -423,7 +561,6 @@ async function loadUsersSection(container) {
           return;
         }
 
-        // Кастомное модальное окно для ввода причины деактивации
         let modal = document.getElementById('deactivate-modal');
         if (!modal) {
           modal = document.createElement('div');
@@ -503,7 +640,7 @@ async function loadUsersSection(container) {
 
       if (res.ok) {
         toast(newActive ? 'Аккаунт активирован' : 'Аккаунт деактивирован', 'ok');
-        const targetUser = users.find(x => x.id === userId);
+        const targetUser = users.find(x => String(x.id) === String(userId));
         if (targetUser) {
           targetUser.is_active = newActive;
           targetUser.deactivated_at = payload.deactivated_at;
