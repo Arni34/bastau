@@ -23,7 +23,7 @@ function boot() {
     go('#/projects');
     setTimeout(() => { const i = $('input[name="q"]'); if (i) i.focus(); }, 360);
   });
-  $('#btn-bell').addEventListener('click', () => go('#/dashboard?tab=notifs'));
+  $('#btn-bell').addEventListener('click', () => go('#/dashboard?tab=notifications'));
   $('#btn-me').addEventListener('click', () => {
     const u = me();
     if (!u) return;

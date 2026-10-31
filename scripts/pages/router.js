@@ -1,7 +1,7 @@
 /* BASTAU - Hash router */
 
 import { $, $$, initials } from '../lib/utils.js';
-import { me, unread } from '../lib/session.js';
+import { me, unread, setSession } from '../lib/session.js';
 
 import { M } from '../global/globals.js';
 
@@ -14,7 +14,7 @@ import { renderEvents, renderMentors } from './page-events.js';
 import { renderDashboard } from './page-dashboard.js';
 import { renderAuth } from './page-auth.js';
 import { renderAdmin } from './page-admin.js';
-import { renderAbout, render404 } from './page-misc.js';
+import { renderAbout, render404, needAuth } from './page-misc.js';
 
 const routes = {
   '': renderHome,
@@ -39,10 +39,49 @@ function parseHash() {
 }
 
 export let current = '';
-export function route(skipAnim) {
+
+async function checkAdminAccess(user) {
+  if (!user) return false;
+  try {
+    const res = await fetch(`/api/user-statuses?user_id=${user.id}`);
+    if (!res.ok) return false;
+    const statusData = await res.json();
+    
+    user.role = statusData.role || 'user';
+    user.is_active = statusData.is_active ?? true;
+    setSession(user);
+
+    return user.role === 'admin' || user.role === 'moderator';
+  } catch (e) {
+    return false;
+  }
+}
+
+export async function route(skipAnim) {
   const { name, arg, params } = parseHash();
-  const view = routes[name] || render404;
   const main = $('#main');
+
+  let view = routes[name] || render404;
+
+  if (name === 'admin') {
+    const user = me();
+    if (!user) {
+      view = (root) => needAuth(root, 'Войдите как администратор', '#/admin');
+    } else {
+      const hasAccess = await checkAdminAccess(user);
+      if (!hasAccess) {
+        view = (root) => {
+          root.innerHTML = `<section class="section"><div class="wrap wrap--narrow">
+            <div class="card" style="text-align:center;padding:var(--sp-6)">
+              <h1 style="font-size:24px;margin-bottom:var(--sp-2)">Доступ запрещен</h1>
+              <p style="color:var(--fg-mut);margin-bottom:var(--sp-4)">У вашего аккаунта нет прав администратора.</p>
+              <a class="btn btn--primary" href="#/">На главную</a>
+            </div>
+          </div></section>`;
+        };
+      }
+    }
+  }
 
   const paint = () => {
     M.killView();

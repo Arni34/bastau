@@ -1,6 +1,6 @@
 /* BASTAU - Sign in / sign up page */
 
-import { $, icon, esc, skillRu } from '../lib/utils.js';
+import { $, icon, esc, skillRu, dateRu } from '../lib/utils.js';
 import { setSession } from '../lib/session.js';
 
 import { D } from '../global/globals.js';
@@ -8,7 +8,6 @@ import { toast } from '../global/modals.js';
 import { validate, required, minLen, fieldError, chipPicker, pickerValue } from '../global/forms.js';
 import { go } from '../pages/router.js';
 
-/* Auth */
 export function renderAuth(root, _arg, params) {
   const mode = params.get('mode') === 'signup' ? 'signup' : 'login';
   const next = params.get('next') || '#/dashboard';
@@ -64,8 +63,24 @@ export function renderAuth(root, _arg, params) {
           toast('Аккаунт не найден', 'err');
           return;
         }
-        if (user.blocked) {
-          toast('Аккаунт заблокирован администрацией', 'err');
+
+        try {
+          const resStatus = await fetch(`/api/user-statuses?user_id=${user.id}`);
+          if (resStatus.ok) {
+            const statusData = await resStatus.json();
+            user.role = statusData.role || 'user';
+            user.is_active = statusData.is_active ?? true;
+            user.deactivated_at = statusData.deactivated_at;
+            user.deactivated_reason = statusData.deactivated_reason || '';
+            
+          }
+        } catch (e) {
+          user.role = 'user';
+          user.is_active = true;
+        }
+
+        if (user.is_active === false) {
+          showDeactivatedModal(user.deactivated_reason);
           return;
         }
 
@@ -81,6 +96,53 @@ export function renderAuth(root, _arg, params) {
     body.innerHTML = signupStep(1, signupState);
     bindSignup(body, next);
   }
+}
+
+function showDeactivatedModal(reason) {
+  let modal = document.getElementById('deactivated-modal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'deactivated-modal';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;padding:16px;';
+    document.body.appendChild(modal);
+  }
+
+  const reasonText = reason ? esc(reason) : 'Причина не указана администрацией.';
+
+  modal.innerHTML = `
+    <div style="background:var(--bg, #fff);padding:24px;border-radius:16px;width:100%;max-width:440px;box-shadow:0 10px 25px rgba(0,0,0,0.15);display:flex;flex-direction:column;gap:16px;">
+      <div style="display:flex;align-items:center;gap:12px;color:var(--err-color, #e53935);">
+        <div style="background:rgba(229,57,53,0.1);padding:8px;border-radius:50%;display:flex;">
+          ${icon('alert', 'ic--md')}
+        </div>
+        <h3 style="margin:0;font-size:20px;color:var(--fg, #111);">Аккаунт деактивирован</h3>
+      </div>
+      
+      <p style="margin:0;font-size:14px;color:var(--fg-mut, #666);line-height:1.5;">
+        Ваш аккаунт был заблокирован.
+      </p>
+
+      <div style="background:var(--bg-subtle, #f5f5f5);padding:14px;border-radius:8px;border-left:3px solid var(--err-color, #e53935);">
+        <div style="font-size:12px;color:var(--fg-mut, #888);margin-bottom:4px;font-weight:600;">ПРИЧИНА БЛОКИРОВКИ:</div>
+        <div style="font-size:14px;color:var(--fg, #111);line-height:1.4;">${reasonText}</div>
+      </div>
+
+      <p style="margin:0;font-size:13px;color:var(--fg-mut, #666);">
+        Если вы считаете, что это произошло по ошибке, обратитесь в службу поддержки.
+      </p>
+
+      <div style="display:flex;justify-content:flex-end;margin-top:8px;">
+        <button type="button" id="deactivated-modal-close" class="btn btn--primary">Понятно</button>
+      </div>
+    </div>`;
+
+  modal.style.display = 'flex';
+
+  const closeBtn = document.getElementById('deactivated-modal-close');
+  const closeModal = () => { modal.style.display = 'none'; };
+
+  closeBtn.addEventListener('click', closeModal);
+  modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
 }
 
 const signupState = {};
@@ -188,7 +250,6 @@ function bindSignup(body, next) {
 
       const email = normEmail(fd.get('email'));
 
-      // Пока идёт проверка, кнопка заблокирована — защита от двойного клика.
       const nextBtn = form.querySelector('button[type="submit"]');
       if (nextBtn) nextBtn.disabled = true;
       const free = await isEmailFree(email);
@@ -237,8 +298,6 @@ function bindSignup(body, next) {
 
         const data = await res.json().catch(() => ({}));
 
-        // Итоговая защита: пока человек заполнял шаги, адрес могли занять —
-        // либо проверку на шаге 1 обошли. Возвращаем на шаг 1 к нужному полю.
         if (res.status === 409 && CONFLICT_MSG[data.field]) {
           body.innerHTML = signupStep(1, signupState);
           showConflict($('[data-form="signup"]', body), data.field);
@@ -250,6 +309,8 @@ function bindSignup(body, next) {
           if (submitBtn) submitBtn.disabled = false;
           return;
         }
+
+        data.role = 'user';
 
         resetSignupState();
         setSession(data);
