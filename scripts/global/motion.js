@@ -36,48 +36,6 @@
     onScroll();
 
     if (!g || reduced) { html.classList.remove('has-intro'); return; }
-    blobs();
-  }
-
-  /* ---------------- Live gradient: blob drift & cursor follow ------- */
-  function blobs() {
-    const nodes = g.utils.toArray('.blob');
-    if (!nodes.length) return;
-
-    g.utils.toArray('.star').forEach((s, i) => {
-      ambient.push(g.to(s, {
-        yPercent: () => g.utils.random(-8, 8),
-        xPercent: () => g.utils.random(-6, 6),
-        rotate: () => g.utils.random(-8, 8),
-        scale: () => g.utils.random(.94, 1.08),
-        duration: () => g.utils.random(14, 22),
-        ease: 'sine.inOut', repeat: -1, repeatRefresh: true, yoyo: true, delay: i * .8,
-      }));
-    });
-
-    nodes.forEach((b, i) => {
-      ambient.push(g.to(b, {
-        xPercent: () => g.utils.random(-14, 14),
-        yPercent: () => g.utils.random(-12, 12),
-        scale: () => g.utils.random(.88, 1.2),
-        duration: () => g.utils.random(10, 16),
-        ease: 'sine.inOut', repeat: -1, repeatRefresh: true, yoyo: true, delay: i * .5,
-      }));
-    });
-
-    if (finePointer) {
-      const ax = g.quickTo('.aurora', 'x', { duration: 2.2, ease: 'power3' });
-      const ay = g.quickTo('.aurora', 'y', { duration: 2.2, ease: 'power3' });
-      window.addEventListener('pointermove', (e) => {
-        ax((e.clientX / innerWidth - .5) * -50);
-        ay((e.clientY / innerHeight - .5) * -50);
-      }, { passive: true });
-    }
-
-    if (ST) ST.create({
-      start: 0, end: 'max',
-      onUpdate: (self) => ambient.forEach((t) => (self.scroll() < innerHeight * 1.2 ? t.resume() : t.pause())),
-    });
   }
 
   /* --------------------------- Intro animation ------------------- */
