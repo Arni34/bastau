@@ -47,7 +47,6 @@ document.addEventListener('click', async (e) => {
     
     if (act === 'mentor-ask') { actAskMentor(id); return; }
     
-    // Меню аккаунта по клику на аватар в шапке — раньше кнопка ничего не делала
     if (act === 'account-menu') {
       const u = me();
       if (!u) { go('#/auth'); return; }
@@ -113,20 +112,6 @@ document.addEventListener('click', async (e) => {
       } catch (err) {
         toast('Ошибка обновления уведомлений', 'err');
       }
-      return;
-    }
-
-    if (act === 'admin-block') { // PLACEHOLDER ==========================================================
-      confirmSheet('Изменить статус блокировки?', 'Пользователь потеряет или восстановит доступ.', 'Подтвердить', async () => {
-        try {
-          const res = await fetch(`/api/user_statuses/${id}/block`, { method: 'PATCH' });
-          if (!res.ok) throw new Error('Ошибка запроса');
-          toast('Статус пользователя изменён', 'ok');
-          route(true);
-        } catch (err) {
-          toast(err.message, 'err');
-        }
-      });
       return;
     }
 
