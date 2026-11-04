@@ -35,6 +35,18 @@ const EDITABLE = ['name', 'school', 'grade', 'city', 'bio', 'skills', 'interests
 
 const publicUrl = (id) => `${process.env.SUPABASE_URL}/storage/v1/object/public/avatars/${id}.jpg`;
 
+/* Блокировка живёт в отдельной таблице user_statuses. Проверяем её и при входе,
+   и при каждой правке: иначе выданный раньше токен работал бы ещё 30 дней,
+   даже если администратор уже заблокировал аккаунт. */
+async function accountStatus(userId) {
+  const { data } = await supabase
+    .from('user_statuses')
+    .select('role, is_active, deactivated_reason')
+    .eq('user_id', userId)
+    .maybeSingle();
+  return data || { role: 'user', is_active: true, deactivated_reason: '' };
+}
+
 /* Наружу не отдаём хеш пароля, а почту — только владельцу токена. */
 function safe(user, viewerId) {
   const { password_hash, email, ...rest } = user;
@@ -62,6 +74,8 @@ async function byId(req, res, id) {
   if (req.method === 'POST' && req.query.avatar) {
     if (!viewerId || viewerId !== cleanId) return res.status(403).json({ error: 'Можно менять только свой профиль' });
     try {
+      const status = await accountStatus(cleanId);
+      if (status.is_active === false) return res.status(403).json({ error: 'Аккаунт заблокирован' });
       const raw = (req.body && req.body.data) || '';
       const base64 = raw.includes(',') ? raw.split(',')[1] : raw;
       if (!base64) return res.status(400).json({ error: 'Файл не передан' });
@@ -87,6 +101,8 @@ async function byId(req, res, id) {
   if (req.method === 'PATCH') {
     if (!viewerId || viewerId !== cleanId) return res.status(403).json({ error: 'Можно менять только свой профиль' });
     try {
+      const status = await accountStatus(cleanId);
+      if (status.is_active === false) return res.status(403).json({ error: 'Аккаунт заблокирован' });
       const body = req.body || {};
       const updates = {};
       EDITABLE.forEach((k) => {
@@ -138,7 +154,20 @@ export default async function handler(req, res) {
       const ok = user ? await bcrypt.compare(password, user.password_hash || '') : false;
       if (!ok) return res.status(401).json({ error: 'Неверный логин или пароль' });
 
-      return res.status(200).json({ user: safe(user, user.id), token: makeToken(user.id) });
+      const status = await accountStatus(user.id);
+      if (status.is_active === false) {
+        // токен не выдаём вовсе: иначе заблокированный аккаунт мог бы
+        // обратиться к API напрямую, минуя окно блокировки в интерфейсе
+        return res.status(403).json({
+          error: 'Аккаунт заблокирован',
+          deactivated_reason: status.deactivated_reason || '',
+        });
+      }
+
+      return res.status(200).json({
+        user: Object.assign(safe(user, user.id), { role: status.role || 'user', is_active: true }),
+        token: makeToken(user.id),
+      });
     } catch (err) {
       return res.status(500).json({ error: err.message });
     }

@@ -64,6 +64,13 @@ export function renderAuth(root, _arg, params) {
           body: JSON.stringify({ login: loginVal, password: fd.get('password').toString() }),
         });
 
+        if (res.status === 403) {
+          // сервер не выдал токен: аккаунт заблокирован администрацией
+          const info = await res.json().catch(() => ({}));
+          showDeactivatedModal(info.deactivated_reason || '');
+          return;
+        }
+
         if (!res.ok) {
           fieldError(form, 'login', 'Неверный логин или пароль.');
           toast('Неверный логин или пароль', 'err');
