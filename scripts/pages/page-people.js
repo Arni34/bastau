@@ -113,7 +113,7 @@ export async function renderProfile(root, username) {
             </div>
           </div>
           <div class="row" style="gap:var(--sp-2)">
-            ${mine ? '<a class="btn btn--primary" href="#/dashboard">Мой кабинет</a>'
+            ${mine ? '<a class="btn btn--primary" href="#/settings">Редактировать профиль</a><a class="btn btn--ghost" href="#/dashboard">Кабинет</a>'
               : `<button class="btn btn--primary" type="button" data-act="invite" data-id="${u.id}">${icon('plus', 'ic--sm')}Пригласить в проект</button>`}
             <button class="btn btn--ghost" type="button" data-act="portfolio" data-id="${u.id}">${icon('award', 'ic--sm')}Портфолио</button>
           </div>
@@ -127,6 +127,13 @@ export async function renderProfile(root, username) {
         <div class="split" style="margin-top:var(--sp-6)">
           <div class="prose">
             <div class="card" data-reveal><h3>О себе</h3><p>${esc(u.bio)}</p></div>
+            <div class="card" data-reveal>
+              <h3>Портфолио</h3>
+              ${u.achievements.length
+                ? `<div style="margin-top:var(--sp-3)">${u.achievements.map((a) => `
+                    <div class="tl"><span class="tl__dot">${icon('award', 'ic--sm')}</span><div><div class="tl__t">${esc(a)}</div></div></div>`).join('')}</div>`
+                : `<p>${mine ? 'Пока пусто — добавьте олимпиады, конкурсы и сертификаты в настройках профиля.' : 'Участник пока не добавил достижения.'}</p>`}
+            </div>
             <div class="card" data-reveal>
               <h3>Проекты</h3>
               ${projects.length ? `<div class="grid grid--2" style="margin-top:var(--sp-4)">${projects.map(projectCard).join('')}</div>`
