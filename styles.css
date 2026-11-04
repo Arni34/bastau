@@ -106,6 +106,10 @@ img, svg { display: block; max-width: 100%; }
 button, input, select, textarea { font: inherit; color: inherit; }
 ul { margin: 0; padding: 0; list-style: none; }
 :focus-visible { outline: 3px solid var(--ring); outline-offset: 2px; border-radius: 6px; }
+/* #main получает фокус программно при каждой смене страницы — это нужно скринридерам.
+   Но рамка вокруг всей области контента читается как синяя полоса под шапкой,
+   торчащая по бокам. Прячем её только здесь: у кнопок и полей фокус остаётся видимым. */
+#main:focus, #main:focus-visible { outline: none; }
 ::selection { background: var(--brand-yellow); color: #0C2740; }
 
 .skip {
