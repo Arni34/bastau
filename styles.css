@@ -257,6 +257,9 @@ button.chip.chip--on:hover { background: var(--fill-dk); color: var(--on-fill); 
   border: 2px solid var(--surface); box-shadow: var(--sh-1); overflow: hidden;
 }
 .avatar--btn { cursor: pointer; padding: 0; }
+/* фото поверх инициалов: если картинки нет, onerror удалит её и останутся буквы */
+.avatar { position: relative; }
+.avatar img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
 .avatar--sm { width: 36px; height: 36px; font-size: 13px; }
 .avatar--lg { width: 96px; height: 96px; font-size: 32px; }
 .avatar--xl { width: 116px; height: 116px; font-size: 38px; }

@@ -51,18 +51,33 @@ export function renderAuth(root, _arg, params) {
       const form = e.currentTarget;
       if (!validate(form, { login: required('Введите email или username'), password: minLen(6, 'Пароль от 6 символов') })) return;
         
-      const loginVal = new FormData(form).get('login').toString().trim().toLowerCase();
-        
-      try {
-        const res = await fetch('/api/users');
-        const users = await res.json();
-        const user = users.find((x) => x.username.toLowerCase() === loginVal || (x.email || '').toLowerCase() === loginVal);
+      const fd = new FormData(form);
+      const loginVal = fd.get('login').toString().trim().toLowerCase();
 
-        if (!user) {
-          fieldError(form, 'login', 'Аккаунт не найден.');
-          toast('Аккаунт не найден', 'err');
+      try {
+        // Пароль проверяет сервер, сравнивая его с bcrypt-хешем, и выдаёт токен.
+        // Раньше вход грузил список всех пользователей и пускал по совпадению
+        // логина — пароль не проверялся вовсе.
+        const res = await fetch('/api/users?action=login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ login: loginVal, password: fd.get('password').toString() }),
+        });
+
+        if (res.status === 403) {
+          // сервер не выдал токен: аккаунт заблокирован администрацией
+          const info = await res.json().catch(() => ({}));
+          showDeactivatedModal(info.deactivated_reason || '');
           return;
         }
+
+        if (!res.ok) {
+          fieldError(form, 'login', 'Неверный логин или пароль.');
+          toast('Неверный логин или пароль', 'err');
+          return;
+        }
+
+        const { user, token } = await res.json();
 
         try {
           const resStatus = await fetch(`/api/user-statuses?user_id=${user.id}`);
@@ -84,7 +99,7 @@ export function renderAuth(root, _arg, params) {
           return;
         }
 
-        setSession(user);
+        setSession(user, token);
         toast(`Привет, ${user.name.split(' ')[0]}!`, 'ok');
         go(next);
       } catch (err) {
@@ -312,8 +327,20 @@ function bindSignup(body, next) {
 
         data.role = 'user';
 
+        // Сразу после регистрации получаем токен тем же логином и паролем —
+        // иначе новый пользователь не смог бы отредактировать свой профиль.
+        let token = '';
+        try {
+          const resLogin = await fetch('/api/users?action=login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ login: signupState.username, password: signupState.password }),
+          });
+          if (resLogin.ok) ({ token } = await resLogin.json());
+        } catch (e) { /* войдёт обычным способом */ }
+
         resetSignupState();
-        setSession(data);
+        setSession(data, token);
         toast('Профиль успешно создан!', 'ok');
         go(next);
       } catch (err) {

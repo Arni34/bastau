@@ -3,6 +3,7 @@
 import { uid } from './utils.js';
 
 const KEY_SESSION = 'bastau_session_user';
+const KEY_TOKEN = 'bastau_session_token';
 
 let currentUser = getStoredSession();
 
@@ -15,15 +16,28 @@ function getStoredSession() {
   }
 }
 
-export function setSession(user) {
+export function setSession(user, token) {
   currentUser = user;
   try {
     if (user) {
       localStorage.setItem(KEY_SESSION, JSON.stringify(user));
+      if (token) localStorage.setItem(KEY_TOKEN, token);
     } else {
       localStorage.removeItem(KEY_SESSION);
+      localStorage.removeItem(KEY_TOKEN);
     }
   } catch (e) {}
+}
+
+/* Токен подтверждает серверу, что правки профиля делает их владелец.
+   Без него API отвечает 403 — изменить чужой аккаунт из браузера нельзя. */
+export function token() {
+  try { return localStorage.getItem(KEY_TOKEN) || ''; } catch (e) { return ''; }
+}
+
+export function authHeaders(extra) {
+  const t = token();
+  return Object.assign({}, extra || {}, t ? { Authorization: `Bearer ${t}` } : {});
 }
 
 export const me = () => currentUser;
