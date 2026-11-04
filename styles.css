@@ -62,18 +62,16 @@
 .intro {
   position: fixed; inset: 0; z-index: 200; display: none;
   align-items: center; justify-content: center;
-  background:
-    radial-gradient(125% 85% at 88% -12%, #D6ECFC 0%, rgba(255, 255, 255, 0) 58%),
-    radial-gradient(105% 75% at 2% 108%, #FFEFC0 0%, rgba(255, 255, 255, 0) 60%),
-    #FFFFFF;
+  background: #FFFFFF;
 }
 :root.has-intro .intro { display: flex; }
 :root.has-intro body { overflow: hidden; }
-.intro__in { display: grid; justify-items: center; gap: var(--sp-5); width: min(360px, 76vw); }
-.intro__logo { width: 100%; height: auto; }
-.intro__bar { width: 100%; height: 3px; border-radius: 3px; background: rgba(26, 26, 26, .1); overflow: hidden; }
-.intro__bar span { display: block; height: 100%; width: 100%; border-radius: 3px; transform: scaleX(0); transform-origin: left center;
-  background: linear-gradient(90deg, var(--brand-blue), var(--brand-yellow)); }
+.intro__logo { width: min(210px, 52vw); height: auto; }
+.intro__tag {
+  position: absolute; left: 0; right: 0; bottom: max(40px, env(safe-area-inset-bottom));
+  text-align: center; font-size: 12px; font-weight: 500;
+  letter-spacing: .14em; text-transform: uppercase; color: var(--fg-soft);
+}
 
 /* ============================ Базовые стили ============================ */
 *, *::before, *::after { box-sizing: border-box; }

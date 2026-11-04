@@ -51,14 +51,16 @@
     }
     try { sessionStorage.setItem('bastau-visited', '1'); } catch (e) { /* private mode */ }
 
+    // Заставка в духе Instagram: логотип по центру белого экрана, без индикатора прогресса.
+    // Он всё равно ничего не измерял — просто ехал фиксированные 0.85 с и отвлекал.
     g.timeline()
-      .from('.intro__logo', { y: 18, opacity: 0, scale: .96, duration: .7, ease: EASE_IN }, 0)
-      .to('.intro__bar span', { scaleX: 1, duration: .85, ease: 'power2.inOut' }, .15)
-      .to('.intro__in', { y: -18, opacity: 0, duration: .32, ease: EASE_OUT }, .95)
-      .to(intro, { yPercent: -100, duration: .7, ease: 'expo.inOut' }, 1.05)
-      .call(() => { html.classList.remove('has-intro'); intro.remove(); }, null, 1.5)
-      .fromTo(['.hdr', '.view', '.ftr', '.tabbar'], { opacity: 0 }, { opacity: 1, duration: .5, ease: 'power2.out', clearProps: 'opacity' }, 1.2)
-      .add(playHero, 1.25);
+      .from('.intro__logo', { opacity: 0, scale: .94, duration: .5, ease: 'power2.out' }, 0)
+      .from('.intro__tag', { opacity: 0, duration: .4, ease: 'power2.out' }, .15)
+      .to('.intro__logo', { scale: 1.04, duration: .45, ease: 'power2.in' }, .7)
+      .to(intro, { opacity: 0, duration: .45, ease: 'power2.inOut' }, .7)
+      .call(() => { html.classList.remove('has-intro'); intro.remove(); }, null, 1.15)
+      .fromTo(['.hdr', '.view', '.ftr', '.tabbar'], { opacity: 0 }, { opacity: 1, duration: .45, ease: 'power2.out', clearProps: 'opacity' }, .85)
+      .add(playHero, .9);
   }
 
   /* --------------------------- View transitions --------------------------- */
