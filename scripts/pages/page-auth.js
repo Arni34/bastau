@@ -55,9 +55,6 @@ export function renderAuth(root, _arg, params) {
       const loginVal = fd.get('login').toString().trim().toLowerCase();
 
       try {
-        // Пароль проверяет сервер, сравнивая его с bcrypt-хешем, и выдаёт токен.
-        // Раньше вход грузил список всех пользователей и пускал по совпадению
-        // логина — пароль не проверялся вовсе.
         const res = await fetch('/api/users?action=login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -65,7 +62,7 @@ export function renderAuth(root, _arg, params) {
         });
 
         if (res.status === 403) {
-          // сервер не выдал токен: аккаунт заблокирован администрацией
+          // Blocked
           const info = await res.json().catch(() => ({}));
           showDeactivatedModal(info.deactivated_reason || '');
           return;

@@ -92,7 +92,7 @@ export default async function handler(req, res) {
 
   if (req.method === 'POST') {
     try {
-      const { project_id, user_id, message } = req.body;
+      const { project_id, user_id, role, message } = req.body;
 
       if (!project_id || !user_id) {
         return res.status(400).json({ error: 'Необходимы project_id и user_id' });
@@ -108,7 +108,9 @@ export default async function handler(req, res) {
             project_id,
             user_id,
             message: message || '',
-            status: 'pending'
+            status: 'pending',
+            role: role || 'Не указана',
+            created_at: new Date().toISOString().slice(0, 10)
           }
         ])
         .select()

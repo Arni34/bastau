@@ -24,27 +24,27 @@ export default async function handler(req, res) {
       owner_id
     } = req.body;
 
-    // 1. Проверка обязательных полей
+    // Check
     if (!title || !summary || !problem || !solution || !category || !owner_id) {
       return res.status(400).json({ error: 'Заполните все обязательные поля' });
     }
 
-    // 2. Генерация UUID для проекта
+    // UUID
     const projectId = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
       const r = (Math.random() * 16) | 0;
       const v = c === 'x' ? r : (r & 0x3) | 0x8;
       return v.toString(16);
     });
 
-    // 3. Форматирование массива навыков
+    // Skills array
     const parsedSkills = Array.isArray(skills) 
       ? skills 
       : (typeof skills === 'string' ? skills.split(',').filter(Boolean) : []);
 
-    // 4. Форматирование ссылок в формат JSONB (как в схеме)
+    // Links
     const formattedLinks = link?.trim() ? [{ label: 'Ссылка', url: link.trim() }] : [];
 
-    // 5. Объект для вставки строго под структуру таблицы Supabase
+    // Object
     const newProject = {
       id: projectId,
       title: title.trim(),
@@ -57,13 +57,13 @@ export default async function handler(req, res) {
       city: city || 'Алматы',
       format: format || 'online',
       lang: lang || 'ru',
-      skills: parsedSkills,            // Колонка в БД: skills
-      team_size: Number(teamSize) || 4,// Колонка в БД: team_size
-      need_team: Boolean(needTeam),    // Колонка в БД: need_team
-      links: formattedLinks,           // Колонка в БД: links (jsonb)
-      owner_id,                        // Колонка в БД: owner_id (FK на users.id)
-      members: [{ userId: owner_id, role: 'Автор проекта' }], // Исправлено: owner_id вместо author_id
-      created_at: new Date().toISOString().slice(0, 10)       // Колонка в БД: created_at (date)
+      skills: parsedSkills,
+      team_size: Number(teamSize) || 4,
+      need_team: Boolean(needTeam),
+      links: formattedLinks,
+      owner_id,
+      members: [{ userId: owner_id, role: 'Автор проекта' }],
+      created_at: new Date().toISOString().slice(0, 10)
     };
 
     const { data, error } = await supabase.from('projects').insert([newProject]).select().single();

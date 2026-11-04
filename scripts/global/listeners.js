@@ -47,7 +47,6 @@ document.addEventListener('click', async (e) => {
     
     if (act === 'mentor-ask') { actAskMentor(id); return; }
     
-    // Меню аккаунта по клику на аватар в шапке — раньше кнопка ничего не делала
     if (act === 'account-menu') {
       const u = me();
       if (!u) { go('#/auth'); return; }
@@ -78,7 +77,7 @@ document.addEventListener('click', async (e) => {
       return;
     }
 
-    if (act === 'pw-reset') {
+    if (act === 'pw-reset') { // PLACEHOLDER ===================================================================
       openSheet('Восстановление пароля', `
           <p style="color:var(--fg-mut)">Введите email — пришлём ссылку для смены пароля.</p>
           <form class="form" data-form="pwreset" style="margin-top:var(--sp-4)">
@@ -89,7 +88,7 @@ document.addEventListener('click', async (e) => {
             </div>
           </form>`, (box) => {
         $('[data-form="pwreset"]', box).addEventListener('submit', (ev) => {
-          ev.preventDefault(); closeSheet(); toast('Если такой email есть — письмо отправлено', 'ok');
+          ev.preventDefault(); closeSheet(); toast('Функционала еще нет', 'ok');
         });
       });
       return;
@@ -105,7 +104,7 @@ document.addEventListener('click', async (e) => {
 
     if (act === 'filters-reset') { go(location.hash.split('?')[0]); return; }
 
-    if (act === 'notif-read-all') {
+    if (act === 'notif-read-all') { // PLACEHOLDER ==========================================================
       const u = me(); if (!u) return;
       try {
         await fetch(`/api/notifications/read-all`, { method: 'POST' });
@@ -113,34 +112,6 @@ document.addEventListener('click', async (e) => {
       } catch (err) {
         toast('Ошибка обновления уведомлений', 'err');
       }
-      return;
-    }
-
-    if (act === 'admin-block') { // CHANGE
-      confirmSheet('Изменить статус блокировки?', 'Пользователь потеряет или восстановит доступ.', 'Подтвердить', async () => {
-        try {
-          const res = await fetch(`/api/admin/users/${id}/block`, { method: 'POST' });
-          if (!res.ok) throw new Error('Ошибка запроса');
-          toast('Статус пользователя изменён', 'ok');
-          route(true);
-        } catch (err) {
-          toast(err.message, 'err');
-        }
-      });
-      return;
-    }
-
-    if (act === 'admin-project-del') {
-      confirmSheet('Удалить проект?', `Проект и все заявки к нему будут удалены безвозвратно.`, 'Удалить проект', async () => {
-        try {
-          const res = await fetch(`/api/projects/${id}`, { method: 'DELETE' });
-          if (!res.ok) throw new Error('Не удалось удалить проект');
-          toast('Проект удалён', 'ok');
-          route(true);
-        } catch (err) {
-          toast(err.message, 'err');
-        }
-      });
       return;
     }
 
@@ -158,7 +129,7 @@ document.addEventListener('click', async (e) => {
       return;
     }
 
-    if (act === 'admin-report-done') {
+    if (act === 'admin-report-done') { // PLACEHOLDER =====================================================================
       try {
         await fetch(`/api/admin/reports/${id}`, { method: 'DELETE' });
         toast('Жалоба закрыта', 'ok'); 

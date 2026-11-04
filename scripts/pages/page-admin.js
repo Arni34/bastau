@@ -337,7 +337,6 @@ async function loadUsersSection(container) {
   const currentUser = me();
 
   try {
-    // Параллельно запрашиваем пользователей и их статусы/роли
     const [resUsers, resStatuses] = await Promise.all([
       fetch('/api/users'),
       fetch('/api/user-statuses').catch(() => ({ ok: false }))
@@ -349,13 +348,11 @@ async function loadUsersSection(container) {
 
       if (resStatuses.ok) {
         const statuses = await resStatuses.json();
-        // Создаем мапу для быстрого поиска статуса по user_id
         if (Array.isArray(statuses)) {
           statuses.forEach(s => statusesMap.set(String(s.user_id || s.id), s));
         }
       }
 
-      // Объединяем данные пользователя с его статусом и ролью
       users = rawUsers.map(u => {
         const status = statusesMap.get(String(u.id)) || {};
         return {

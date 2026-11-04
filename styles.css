@@ -1,23 +1,23 @@
 /* Styles */
 
 :root {
-  /* — Бренд — */
+  /* — Brand values — */
   --brand-blue:      #2E9BE6;
   --brand-blue-deep: #0B67B8;
   --brand-yellow:    #FFCE1F;
   --brand-yellow-2:  #FFE79A;
 
-  /* — Семантические токены (light): белая база как в Lumifield — */
+  /* — Semantic color values — */
   --bg:          #FFFFFF;
   --surface:     #FFFFFF;
   --surface-2:   #F4F6FA;
   --surface-3:   #E9EDF4;
-  --fg:          #1A1A1A;   /* 16.1:1 на белом */
-  --fg-mut:      #67707A;   /*  5.0:1 на белом */
-  --fg-soft:     #97A0A8;   /* только для декоративных элементов */
+  --fg:          #1A1A1A;
+  --fg-mut:      #67707A;
+  --fg-soft:     #97A0A8;
   --border:      rgba(26, 26, 26, .12);
   --border-str:  rgba(26, 26, 26, .22);
-  --primary:     #0B7BD4;   /* 4.7:1 с белым текстом */
+  --primary:     #0B7BD4;
   --primary-dk:  #0A64AC;
   --on-primary:  #FFFFFF;
   --accent:      #FFCE1F;
@@ -29,9 +29,9 @@
   --danger:      #C42B2B;
   --danger-bg:   #FBECEC;
   --ring:        #0B7BD4;
-  --fill:        #52BCF8;   /* пипетка с логотипа: самый частый пиксель букв BASTAU */
+  --fill:        #52BCF8;
   --fill-dk:     #3FB2F5;
-  --on-fill:     #0C2740;   /* 7.2:1 на голубом и 10:1 на жёлтом; белый дал бы 2.1:1 */
+  --on-fill:     #0C2740;
   --fill-grad:   linear-gradient(102deg, #FFD44A 0%, #FFE38C 26%, #A9DFFB 58%, #52BCF8 100%);
 
 
