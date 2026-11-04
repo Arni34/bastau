@@ -47,6 +47,20 @@ document.addEventListener('click', async (e) => {
     
     if (act === 'mentor-ask') { actAskMentor(id); return; }
     
+    // Меню аккаунта по клику на аватар в шапке — раньше кнопка ничего не делала
+    if (act === 'account-menu') {
+      const u = me();
+      if (!u) { go('#/auth'); return; }
+      openSheet(u.name, `
+        <div class="grid" style="gap:8px">
+          <a class="btn btn--ghost btn--full" href="#/settings" data-act="sheet-close">Настройки профиля</a>
+          <a class="btn btn--ghost btn--full" href="#/profile/${u.username}" data-act="sheet-close">Мой профиль</a>
+          <a class="btn btn--ghost btn--full" href="#/dashboard" data-act="sheet-close">Кабинет</a>
+          <button class="btn btn--danger btn--full" type="button" data-act="logout">Выйти</button>
+        </div>`);
+      return;
+    }
+
     if (act === 'logout') { 
       setSession(null);
       closeSheet(); 

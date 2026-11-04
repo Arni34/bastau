@@ -7,7 +7,13 @@ import { isAdmin, me } from '../lib/session.js';
 
 export function avatar(user, size) {
   const cls = size ? ` avatar--${size}` : '';
-  return `<span class="avatar${cls}" aria-hidden="true">${esc(initials(user.name))}</span>`;
+  const src = user && user.avatar_url;
+  // Фото лежит в Supabase Storage по адресу avatars/<id>.jpg. Если его нет,
+  // картинка не загрузится и onerror покажет инициалы — отдельного поля в базе не нужно.
+  const photo = src
+    ? `<img src="${esc(src)}" alt="" loading="lazy" onerror="this.remove()" />`
+    : '';
+  return `<span class="avatar${cls}" aria-hidden="true">${esc(initials(user && user.name))}${photo}</span>`;
 }
 
 export function projectCard(p) {

@@ -14,6 +14,7 @@ import { renderEvents, renderMentors } from './page-events.js';
 import { renderDashboard } from './page-dashboard.js';
 import { renderAuth } from './page-auth.js';
 import { renderAdmin } from './page-admin.js';
+import { renderSettings } from './page-settings.js';
 import { renderAbout, render404, needAuth } from './page-misc.js';
 
 const routes = {
@@ -28,6 +29,7 @@ const routes = {
   'profile': renderProfile,
   'auth': renderAuth,
   'admin': renderAdmin,
+  'settings': renderSettings,
   'about': renderAbout,
 };
 
@@ -119,7 +121,8 @@ function syncChrome(name) {
   $('#btn-bell').hidden = !u;
   $('.hdr__login').hidden = !!u;
   if (u) {
-    $('#btn-me').textContent = initials(u.name);
+    // инициалы + фото поверх них (если файл в хранилище есть)
+    $('#btn-me').innerHTML = `${initials(u.name)}<img src="${u.avatar_url || ''}" alt="" onerror="this.remove()" />`;
     $('#btn-me').setAttribute('aria-label', `Кабинет: ${u.name}`);
     const n = unread(u.id);
     $('#bell-dot').hidden = n === 0;

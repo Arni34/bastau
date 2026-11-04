@@ -43,6 +43,9 @@ export async function renderDashboard(root, _arg, params) {
             <a class="btn btn--ghost" href="#/profile/${u.username}">
               Мой профиль
             </a>
+            <a class="btn btn--ghost" href="#/settings">
+              ${icon('edit', 'ic--sm')}Настройки
+            </a>
           </div>
         </div>
 

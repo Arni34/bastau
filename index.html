@@ -38,17 +38,6 @@
   <a class="skip" href="#main">Перейти к содержанию</a>
 
   <!-- Gradient -->
-  <div class="aurora" aria-hidden="true">
-    <span class="blob blob--sky"></span>
-    <span class="blob blob--azure"></span>
-    <span class="blob blob--sun"></span>
-    <span class="blob blob--amber"></span>
-    <span class="star star--1"><svg viewBox="0 0 100 100" aria-hidden="true"><path d="M50 0c4.6 34.6 14.8 45.4 50 50-35.2 4.6-45.4 15.4-50 50-4.6-34.6-14.8-45.4-50-50C35.2 45.4 45.4 34.6 50 0Z"/></svg></span>
-    <span class="star star--2"><svg viewBox="0 0 100 100" aria-hidden="true"><path d="M50 0c4.6 34.6 14.8 45.4 50 50-35.2 4.6-45.4 15.4-50 50-4.6-34.6-14.8-45.4-50-50C35.2 45.4 45.4 34.6 50 0Z"/></svg></span>
-    <span class="star star--3"><svg viewBox="0 0 100 100" aria-hidden="true"><path d="M50 0c4.6 34.6 14.8 45.4 50 50-35.2 4.6-45.4 15.4-50 50-4.6-34.6-14.8-45.4-50-50C35.2 45.4 45.4 34.6 50 0Z"/></svg></span>
-    <span class="star star--4"><svg viewBox="0 0 100 100" aria-hidden="true"><path d="M50 0c4.6 34.6 14.8 45.4 50 50-35.2 4.6-45.4 15.4-50 50-4.6-34.6-14.8-45.4-50-50C35.2 45.4 45.4 34.6 50 0Z"/></svg></span>
-    <span class="star star--5"><svg viewBox="0 0 100 100" aria-hidden="true"><path d="M50 0c4.6 34.6 14.8 45.4 50 50-35.2 4.6-45.4 15.4-50 50-4.6-34.6-14.8-45.4-50-50C35.2 45.4 45.4 34.6 50 0Z"/></svg></span>
-  </div>
 
   <!-- SVG Icons -->
   <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
@@ -114,7 +103,7 @@
         <a class="btn btn--primary hdr__cta" href="#/create">
           <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-plus"/></svg><span>Создать проект</span>
         </a>
-        <button class="avatar avatar--btn" id="btn-me" type="button" aria-label="Мой кабинет" hidden></button>
+        <button class="avatar avatar--btn" id="btn-me" type="button" data-act="account-menu" aria-label="Меню аккаунта" hidden></button>
         <button class="ib ib--burger" id="btn-burger" type="button" aria-label="Меню" aria-expanded="false">
           <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-menu"/></svg>
         </button>
@@ -166,10 +155,8 @@
   <div class="toasts" id="toasts" aria-live="polite" aria-atomic="false"></div>
 
   <div class="intro" id="intro" aria-hidden="true">
-    <div class="intro__in">
-      <img class="intro__logo" src="assets/logo-full.png" width="1100" height="369" alt="" />
-      <div class="intro__bar"><span></span></div>
-    </div>
+    <img class="intro__logo" src="assets/logo-full.png" width="1100" height="369" alt="" />
+    <p class="intro__tag">Student Project Ecosystem</p>
   </div>
 
   <noscript><p class="noscript">Для работы BASTAU нужен JavaScript — включите его в настройках браузера.</p></noscript>
