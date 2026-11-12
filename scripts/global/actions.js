@@ -5,7 +5,8 @@ import {
 } from '../lib/utils.js';
 
 import { D } from './globals.js';
-import { me, notify } from '../lib/session.js';
+import { me } from '../lib/session.js';
+import { notifyUser, NOTIFY } from '../lib/notify.js';
 import { openSheet, closeSheet, toast } from './modals.js';
 import { validate, minLen } from './forms.js';
 import { go, route } from '../pages/router.js';
@@ -114,6 +115,14 @@ export async function actApply(projectId) {
           role: roleText,
           message: messageText
         })
+      }).then(async () => {
+        // Автор проекта должен узнать о заявке — раньше запись в notifications не создавалась
+        try {
+          const proj = await fetch(`/api/projects/${projectId}`).then((r) => r.json());
+          const ownerId = proj.owner_id || proj.ownerId;
+          const n = NOTIFY.applied(u.name, proj.title);
+          await notifyUser(ownerId, n.header, n.content);
+        } catch (e) { console.error('Уведомление автору не ушло:', e); }
       }).catch(err => {
         console.error('Ошибка фоновой отправки заявки:', err);
         toast('Не удалось отправить заявку на сервер', 'error');
@@ -156,7 +165,7 @@ export function actInvite(userId) {
   const u = me();
   if (!u) { go('#/auth'); return; }
 
-  openSheet('Пригласить в проект', `
+  openSheet('Добавить в проект', `
       <div id="sheet-invite-body" style="padding:var(--sp-4) 0">
         <p style="color:var(--fg-mut)">Загрузка проектов...</p>
       </div>
@@ -181,21 +190,57 @@ export function actInvite(userId) {
 
     box.innerHTML = `
         <form class="form" data-form="invite" novalidate>
-          <p style="margin-bottom:var(--sp-3)">Приглашение для <b>${esc(target.name)}</b>:</p>
+          <p style="margin-bottom:var(--sp-3)">Добавить <b>${esc(target.name)}</b> в команду:</p>
           <div class="field"><label for="iv-p">Проект</label>
             <select class="select" id="iv-p" name="project">${mine.map((p) => `<option value="${p.id}">${esc(p.title)}</option>`).join('')}</select></div>
           <div class="field"><label for="iv-r">Роль</label>
             <select class="select" id="iv-r" name="role">${D.ROLES.filter((r) => r !== 'Founder').map((r) => `<option>${r}</option>`).join('')}</select></div>
           <div class="row" style="justify-content:flex-end;margin-top:var(--sp-4)">
             <button class="btn btn--ghost" type="button" data-act="sheet-close">Отмена</button>
-            <button class="btn btn--primary" type="submit">Отправить приглашение</button>
+            <button class="btn btn--primary" type="submit">Добавить в команду</button>
           </div>
         </form>`;
 
-    $('[data-form="invite"]', box).addEventListener('submit', (e) => {
+    $('[data-form="invite"]', box).addEventListener('submit', async (e) => {
       e.preventDefault();
-      closeSheet();
-      toast('Приглашение отправлено', 'ok');
+      const form = e.currentTarget;
+      const btn = $('[type="submit"]', form);
+      const projectId = form.project.value;
+      const role = form.role.value;
+      const project = mine.find((pr) => String(pr.id) === String(projectId));
+
+      btn.disabled = true;
+      btn.textContent = 'Добавляем…';
+
+      try {
+        const members = project.members || [];
+        if (members.some((m) => (m.userId || m.user_id) === userId)) {
+          toast('Этот человек уже в команде', 'err');
+          btn.disabled = false;
+          btn.textContent = 'Добавить в команду';
+          return;
+        }
+
+        // Раньше кнопка только закрывала окно и показывала тост — участник никуда не попадал.
+        const res = await fetch(`/api/projects/${projectId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ members: [...members, { userId, role }] }),
+        });
+        if (!res.ok) throw new Error('Сервер не принял изменения');
+
+        const n = NOTIFY.added(u.name, project.title, role);
+        await notifyUser(userId, n.header, n.content);
+
+        closeSheet();
+        toast(`${target.name} теперь в команде «${project.title}»`, 'ok');
+        if (typeof route === 'function') route(true);
+      } catch (err) {
+        console.error(err);
+        toast('Не удалось добавить участника', 'err');
+        btn.disabled = false;
+        btn.textContent = 'Добавить в команду';
+      }
     });
   }).catch((err) => {
     console.error(err);

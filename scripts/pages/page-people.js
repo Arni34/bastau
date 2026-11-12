@@ -114,7 +114,7 @@ export async function renderProfile(root, username) {
           </div>
           <div class="row" style="gap:var(--sp-2)">
             ${mine ? '<a class="btn btn--primary" href="#/settings">Редактировать профиль</a><a class="btn btn--ghost" href="#/dashboard">Кабинет</a>'
-              : `<button class="btn btn--primary" type="button" data-act="invite" data-id="${u.id}">${icon('plus', 'ic--sm')}Пригласить в проект</button>`}
+              : `<button class="btn btn--primary" type="button" data-act="invite" data-id="${u.id}">${icon('plus', 'ic--sm')}Добавить в проект</button>`}
             <button class="btn btn--ghost" type="button" data-act="portfolio" data-id="${u.id}">${icon('award', 'ic--sm')}Портфолио</button>
           </div>
         </div>

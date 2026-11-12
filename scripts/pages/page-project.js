@@ -7,6 +7,7 @@ import { M } from '../global/globals.js';
 import { avatar } from '../global/components.js';
 import { toast } from '../global/modals.js';
 import { render404 } from './page-misc.js';
+import { notifyUser, NOTIFY } from '../lib/notify.js';
 
 export async function renderProject(root, id) {
   root.innerHTML = `<div class="wrap" style="padding:var(--sp-6) 0"><p>Загрузка проекта...</p></div>`;
@@ -161,7 +162,7 @@ export async function renderProject(root, id) {
                         <div class="member__r" style="margin-top:2px">Сообщение: "${esc(app.message || 'Без сообщения')}"</div>
                       </div>
                       <div class="row row--tight" style="justify-content:flex-end">
-                        <button class="btn btn--sm btn--ghost" data-act="reject-app" data-appid="${app.id}">Отклонить</button>
+                        <button class="btn btn--sm btn--ghost" data-act="reject-app" data-appid="${app.id}" data-userid="${app.user_id}">Отклонить</button>
                         <button class="btn btn--sm btn--primary" data-act="accept-app" data-appid="${app.id}" data-userid="${app.user_id}" data-role="${esc(app.role || 'Участник')}">Принять</button>
                       </div>
                     </div>
@@ -246,6 +247,9 @@ export async function renderProject(root, id) {
 
           if (!resAppDelete.ok) throw new Error('Не удалось удалить заявку');
 
+          const n = NOTIFY.accepted(p.title, role);
+          await notifyUser(userId, n.header, n.content);
+
           toast('Заявка принята, участник добавлен в команду!', 'ok');
           renderProject(root, id);
         } catch (e) {
@@ -276,6 +280,10 @@ export async function renderProject(root, id) {
             body: JSON.stringify({ status: 'rejected' })
           });
           if (res.ok) {
+            const userId = btn.getAttribute('data-userid');
+            const n = NOTIFY.rejected(p.title);
+            await notifyUser(userId, n.header, n.content);
+
             toast('Заявка отклонена', 'ok');
             renderProject(root, id);
           } else {
@@ -324,6 +332,9 @@ export async function renderProject(root, id) {
           });
 
           if (res.ok) {
+            const n = NOTIFY.removed(p.title);
+            await notifyUser(userIdToRemove, n.header, n.content);
+
             toast('Участник удален из команды', 'ok');
             renderProject(root, id);
           } else {
