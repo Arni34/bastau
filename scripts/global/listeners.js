@@ -1,7 +1,7 @@
 /* BASTAU - Global click / change / keydown handlers */
 
 import { $, stageRu } from '../lib/utils.js';
-import { userById, notify, me, setSession } from '../lib/session.js';
+import { userById, me, setSession } from '../lib/session.js';
 
 import { M } from './globals.js';
 import { closeSheet, confirmSheet, toast, openSheet } from './modals.js';
@@ -104,10 +104,10 @@ document.addEventListener('click', async (e) => {
 
     if (act === 'filters-reset') { go(location.hash.split('?')[0]); return; }
 
-    if (act === 'notif-read-all') { // PLACEHOLDER ==========================================================
+    if (act === 'notif-read-all') {
       const u = me(); if (!u) return;
       try {
-        await fetch(`/api/notifications/read-all`, { method: 'POST' });
+        await fetch('/api/notifications', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user_id: me().id }) });
         route(true);
       } catch (err) {
         toast('Ошибка обновления уведомлений', 'err');

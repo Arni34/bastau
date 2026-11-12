@@ -235,7 +235,7 @@ export async function renderDashboard(root, _arg, params) {
       if (markAllBtn) {
         markAllBtn.addEventListener('click', async () => {
           try {
-            const res = await fetch('/api/notifications/read-all', {
+            const res = await fetch('/api/notifications', {
               method: 'PATCH',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ user_id: u.id })

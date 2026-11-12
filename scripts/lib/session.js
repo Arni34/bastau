@@ -10,7 +10,16 @@ let currentUser = getStoredSession();
 function getStoredSession() {
   try {
     const raw = localStorage.getItem(KEY_SESSION);
-    return raw ? JSON.parse(raw) : null;
+    if (!raw) return null;
+    // Сессии, сохранённые до появления серверной авторизации, не содержат токена.
+    // С ними любая правка профиля отвечала 403, и правки молча не сохранялись —
+    // именно так выглядел баг «портфолио не сохраняется». Такую сессию сбрасываем:
+    // человек один раз входит заново и получает токен.
+    if (!localStorage.getItem(KEY_TOKEN)) {
+      localStorage.removeItem(KEY_SESSION);
+      return null;
+    }
+    return JSON.parse(raw);
   } catch (e) {
     return null;
   }
@@ -50,6 +59,3 @@ const incomingApps = (id) => [];
 const myNotifs = (id) => [];
 export const unread = (id) => 0;
 
-export function notify(userId, type, text, href) {
-  db.notifications.push({ id: uid('n'), userId, type, text, href: href || '', read: false, createdAt: new Date().toISOString() });
-}
