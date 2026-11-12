@@ -29,6 +29,11 @@
   --danger:      #C42B2B;
   --danger-bg:   #FBECEC;
   --ring:        #0B7BD4;
+  /* — Фирменный градиент (как на логотипе: небо → тёплый свет) — */
+  --sky:    rgba(46, 155, 230, .30);
+  --azure:  rgba(125, 205, 250, .24);
+  --sun:    rgba(255, 206, 31, .26);
+  --amber:  rgba(255, 228, 140, .26);
   --fill:        #52BCF8;
   --fill-dk:     #3FB2F5;
   --on-fill:     #0C2740;
@@ -73,6 +78,41 @@
   letter-spacing: .14em; text-transform: uppercase; color: var(--fg-soft);
 }
 
+/* ================= Фирменный градиент фона (статичный) ===============
+   Слой лежит за контентом и не двигается: ни дрейфа пятен, ни реакции
+   на курсор — только цвет. */
+.aurora {
+  position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none;
+  background:
+    radial-gradient(125% 85% at 88% -12%, #DCEFFD 0%, rgba(255, 255, 255, 0) 58%),
+    radial-gradient(105% 75% at 2% 108%, #FFF4D2 0%, rgba(255, 255, 255, 0) 60%),
+    linear-gradient(#FFFFFF 0%, #FFFFFF 42%, #F5F7FB 100%);
+}
+.blob { position: absolute; border-radius: 50%; }
+.blob--sky   { width: 52vw; height: 52vw; right: -12vw; top: -16vw; background: radial-gradient(circle, var(--sky), rgba(46, 155, 230, 0) 68%); }
+.blob--azure { width: 40vw; height: 40vw; left: -10vw; top: 4vh;    background: radial-gradient(circle, var(--azure), rgba(125, 205, 250, 0) 68%); }
+.blob--sun   { width: 44vw; height: 44vw; left: -8vw; bottom: -14vw; background: radial-gradient(circle, var(--sun), rgba(255, 206, 31, 0) 68%); }
+.blob--amber { width: 34vw; height: 34vw; right: 4vw; bottom: 2vh;   background: radial-gradient(circle, var(--amber), rgba(255, 228, 140, 0) 68%); }
+@media (max-width: 800px) { .blob { width: 92vw; height: 92vw; } }
+
+.star { position: absolute; pointer-events: none; }
+.star svg { width: 100%; height: 100%; display: block; }
+.star--1 { width: 20vw; right: -3vw;  top: -5vh;  opacity: .5;  color: #FFFFFF; }
+.star--2 { width: 9vw;  right: 14vw;  top: 9vh;   opacity: .42; color: #FFFFFF; }
+.star--3 { width: 13vw; left: 2vw;    bottom: 14vh; opacity: .48; color: #FFFFFF; }
+.star--4 { width: 6vw;  left: 16vw;   bottom: 30vh; opacity: .34; color: #FFF3C9; }
+.star--5 { width: 7vw;  right: 26vw;  bottom: 8vh;  opacity: .3;  color: #D6EDFC; }
+.star svg path { fill: currentColor; }
+@media (max-width: 800px) {
+  .star--1 { width: 34vw; }
+  .star--2 { width: 16vw; }
+  .star--3 { width: 24vw; }
+  .star--4, .star--5 { display: none; }   /* на телефоне двух крупных звёзд достаточно */
+}
+
+  background: var(--bg);
+  .blob { display: none; }
+
 /* ============================ Базовые стили ============================ */
 *, *::before, *::after { box-sizing: border-box; }
 /* overflow-x задаём на html через clip: overflow-x:hidden на body ломает position:sticky */
@@ -84,12 +124,7 @@ body {
   font-size: 16px;
   line-height: 1.6;
   color: var(--fg);
-  /* Спокойный статичный фон вместо прежнего плавающего слоя: ни одного движущегося элемента */
-  background:
-    radial-gradient(125% 85% at 88% -12%, #EAF5FE 0%, rgba(255, 255, 255, 0) 55%),
-    radial-gradient(105% 70% at 2% 104%, #FFF8E6 0%, rgba(255, 255, 255, 0) 55%),
-    linear-gradient(var(--bg) 0%, var(--bg) 46%, #F7F9FC 100%);
-  background-attachment: fixed;
+  background: var(--bg);
   -webkit-font-smoothing: antialiased;
 }
 body.is-locked { overflow: hidden; }
