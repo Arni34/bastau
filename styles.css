@@ -358,14 +358,6 @@ a.card:hover .card__go .ic { transform: translateX(3px); }
   content: ''; position: absolute; left: -2px; right: -2px; bottom: .04em; height: .2em;
   background: var(--brand-yellow); border-radius: 4px; z-index: -1; transform-origin: left center;
 }
-/* Искры логотипа поверх выделенной фразы — фоновыми картинками, чтобы пережить разбивку строки на слова */
-.hero h1 em::before {
-  content: ''; position: absolute; inset: -.42em -.34em -.1em; z-index: 2; pointer-events: none;
-  background-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><path fill='%23FFCE1F' d='M50 0c4.6 34.6 14.8 45.4 50 50-35.2 4.6-45.4 15.4-50 50-4.6-34.6-14.8-45.4-50-50C35.2 45.4 45.4 34.6 50 0Z'/></svg>"), url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><path fill='%23FFCE1F' d='M50 0c4.6 34.6 14.8 45.4 50 50-35.2 4.6-45.4 15.4-50 50-4.6-34.6-14.8-45.4-50-50C35.2 45.4 45.4 34.6 50 0Z'/></svg>"), url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><path fill='%23FFCE1F' d='M50 0c4.6 34.6 14.8 45.4 50 50-35.2 4.6-45.4 15.4-50 50-4.6-34.6-14.8-45.4-50-50C35.2 45.4 45.4 34.6 50 0Z'/></svg>");
-  background-repeat: no-repeat;
-  background-size: .46em .46em, .3em .3em, .22em .22em;
-  background-position: right .06em top .02em, left .06em bottom .34em, 57% top .12em;
-}
 .hero__lead { font-size: clamp(16px, 1.9vw, 19px); color: var(--fg-mut); max-width: 62ch; margin: var(--sp-4) auto 0; }
 .hero__cta { display: flex; gap: var(--sp-3); flex-wrap: wrap; align-items: center; justify-content: center; margin-top: var(--sp-6); }
 .hero__cta .btn { min-width: 230px; }               /* две кнопки одной ширины — иначе пара выглядит кривой */
